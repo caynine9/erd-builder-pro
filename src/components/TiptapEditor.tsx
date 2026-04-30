@@ -14,6 +14,8 @@ import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
+import Underline from '@tiptap/extension-underline';
+import { Underline as UnderlineIcon } from 'lucide-react';
 
 import {
   Check,
@@ -329,6 +331,29 @@ const Badge = Mark.create({
   },
 });
 
+const CustomKeyboardShortcuts = Extension.create({
+  name: 'customKeyboardShortcuts',
+
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Alt-b': () => this.editor.commands.toggleBadge(),
+      'Mod-Alt-B': () => this.editor.commands.toggleBadge(),
+      'Mod-Alt-i': () => {
+        // Just return true to intercept, maybe trigger slash menu logic later
+        return true;
+      },
+      'Mod-Alt-t': () => {
+        this.editor.commands.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
+        return true;
+      },
+      'Mod-Alt-T': () => {
+        this.editor.commands.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
+        return true;
+      },
+    }
+  },
+});
+
 
 export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEditorProps) {
   const [headings, setHeadings] = React.useState<HeadingInfo[]>([]);
@@ -433,6 +458,8 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
         class: 'text-primary underline cursor-pointer',
       },
     }),
+    Underline,
+    CustomKeyboardShortcuts,
   ], []);
 
   const editor = useEditor({
@@ -746,108 +773,218 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
               {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'bottom-start', appendTo: () => document.body } } as any)}
               className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
             >
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().setParagraph().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('paragraph') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Pilcrow className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleBold().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('bold') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Bold className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleItalic().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('italic') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Italic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleStrike().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('strike') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Strikethrough className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleBadge().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('badge') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Tag className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleCode().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('code') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Code className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('codeBlock') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <Code2 className="w-4 h-4" />
-              </button>
+              <TooltipProvider delay={200}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().setParagraph().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('paragraph') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Pilcrow className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Text (⌘ ⌥ 0)
+                  </TooltipContent>
+                </Tooltip>
 
-              <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
 
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={openLinkDialog}
-                className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('link') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground text-primary'}`}
-              >
-                <Link className="w-4 h-4" />
-              </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('bold') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Bold className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Bold (⌘ B)
+                  </TooltipContent>
+                </Tooltip>
 
-              <DropdownMenu.Root modal={false}>
-                <DropdownMenu.Trigger asChild>
-                  <button className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground">
-                    <Palette className="w-4 h-4" />
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[160px] flex flex-col" sideOffset={5} align="start">
-                  <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Theme Colors</div>
-                  {[
-                    { name: 'Default', value: '' },
-                    { name: 'Indigo', value: '#6366f1' },
-                    { name: 'Purple', value: '#8b5cf6' },
-                    { name: 'Pink', value: '#ec4899' },
-                    { name: 'Blue', value: '#3b82f6' },
-                    { name: 'Green', value: '#10b981' },
-                    { name: 'Orange', value: '#f59e0b' },
-                    { name: 'Red', value: '#ef4444' }
-                  ].map(({ name, value }) => {
-                    const isActive = editor.isActive('lucideIcon') 
-                      ? editor.getAttributes('lucideIcon').color === (value || null)
-                      : editor.isActive('badge')
-                      ? editor.getAttributes('badge').color === (value || null)
-                      : (value ? editor.isActive('textStyle', { color: value }) : (!editor.getAttributes('textStyle').color));
-                    return (
-                      <DropdownMenu.Item
-                        key={name}
-                        onSelect={() => {
-                          if (editor.isActive('lucideIcon')) {
-                            editor.chain().focus().updateAttributes('lucideIcon', { color: value || null }).run();
-                          } else if (editor.isActive('badge')) {
-                            editor.chain().focus().updateAttributes('badge', { color: value || null }).run();
-                          } else {
-                            if (value) editor.chain().focus().setColor(value).run();
-                            else editor.chain().focus().unsetColor().run();
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('italic') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Italic className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Italic (⌘ I)
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleUnderline().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('underline') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <UnderlineIcon className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Underline (⌘ U)
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('strike') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Strikethrough className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Strikethrough (⌘ ⇧ X)
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleBadge().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('badge') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Tag className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Badge (⌘ ⌥ B)
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleCode().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('code') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Code className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Code (⌘ E)
+                  </TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('codeBlock') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <Code2 className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Code Block (⌘ ⌥ C)
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={openLinkDialog}
+                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('link') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground text-primary'}`}
+                      >
+                        <Link className="w-4 h-4" />
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Link (⌘ K)
+                  </TooltipContent>
+                </Tooltip>
+
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip>
+                    <TooltipTrigger 
+                      render={
+                        <DropdownMenu.Trigger asChild>
+                          <button className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground">
+                            <Palette className="w-4 h-4" />
+                          </button>
+                        </DropdownMenu.Trigger>
+                      }
+                    />
+                    <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                      Color
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[160px] flex flex-col" sideOffset={5} align="start">
+                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Theme Colors</div>
+                    {[
+                      { name: 'Default', value: '' },
+                      { name: 'Indigo', value: '#6366f1' },
+                      { name: 'Purple', value: '#8b5cf6' },
+                      { name: 'Pink', value: '#ec4899' },
+                      { name: 'Blue', value: '#3b82f6' },
+                      { name: 'Green', value: '#10b981' },
+                      { name: 'Orange', value: '#f59e0b' },
+                      { name: 'Red', value: '#ef4444' }
+                    ].map(({ name, value }) => {
+                      const isActive = editor.isActive('lucideIcon') 
+                        ? editor.getAttributes('lucideIcon').color === (value || null)
+                        : editor.isActive('badge')
+                        ? editor.getAttributes('badge').color === (value || null)
+                        : (value ? editor.isActive('textStyle', { color: value }) : (!editor.getAttributes('textStyle').color));
+                      return (
+                        <DropdownMenu.Item
+                          key={name}
+                          onSelect={() => {
+                            if (editor.isActive('lucideIcon')) {
+                              editor.chain().focus().updateAttributes('lucideIcon', { color: value || null }).run();
+                            } else if (editor.isActive('badge')) {
+                              editor.chain().focus().updateAttributes('badge', { color: value || null }).run();
+                            } else {
+                              if (value) editor.chain().focus().setColor(value).run();
+                              else editor.chain().focus().unsetColor().run();
                           }
                         }}
                         className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${isActive ? 'bg-accent/50' : ''}`}
@@ -865,7 +1002,8 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                   })}
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
-            </BubbleMenu>
+            </TooltipProvider>
+          </BubbleMenu>
           )}
 
           <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none tiptap-editor prose-code:before:content-none prose-code:after:content-none prose-blockquote:before:content-none prose-blockquote:after:content-none">
