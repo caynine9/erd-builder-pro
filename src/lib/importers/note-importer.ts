@@ -177,7 +177,7 @@ export class NoteImporter {
    * 2. Sanitizes table structures (<thead>, <tbody>)
    * 3. Removes problematic inline styles
    */
-  private static async processHtmlForEditor(html: string): Promise<string> {
+  public static async processHtmlForEditor(html: string): Promise<string> {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
     const container = doc.body;

@@ -207,13 +207,7 @@ code:not(pre code) {
 /* Tiptap Editor Styles */
 .tiptap-editor-lined {
   --line-height: 2rem;
-  --line-color: oklch(1 0 0 / 6%);
-  /* Shift lines slightly up (approx 6px) to meet the baseline of text */
-  background-image: linear-gradient(to bottom, transparent calc(var(--line-height) - 1px), var(--line-color) calc(var(--line-height) - 1px));
-  background-size: 100% var(--line-height);
-  background-position: 0 -0.4rem; 
-  background-attachment: local;
-  background-origin: content-box;
+  --line-color: transparent;
 }
 
 .tiptap-editor-lined .tiptap-editor-content {
@@ -570,7 +564,6 @@ ul[data-type="taskList"] li[data-checked="true"] > div > p {
 .tiptap-editor-content table th {
   font-weight: 600 !important;
   text-align: left !important;
-  background-color: var(--muted) !important;
   color: var(--foreground) !important;
 }
 

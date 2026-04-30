@@ -38,9 +38,11 @@ import {
   Smile,
   Type,
   ListTree,
-  Tag
+  Tag,
+  Copy
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import { copyMarkdownToClipboard } from '../lib/markdownUtils';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +67,9 @@ import { compressImage } from '../lib/image-compression';
 import { cn } from '@/lib/utils';
 import { SlashMenu } from './SlashMenu';
 import { motion, AnimatePresence } from 'framer-motion';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import { NoteImporter } from '../lib/importers/note-importer';
 
 import {
   HoverCard,
@@ -502,6 +507,47 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
       attributes: {
         className: 'tiptap-editor-content focus:outline-none focus:ring-0 border-none outline-none min-h-[500px] pb-[350px] [&_img]:block [&_img]:mx-auto [&_img]:my-6 [&_.tiptap-extension-resize-image]:block [&_.tiptap-extension-resize-image]:mx-auto [&_code]:text-indigo-300',
       },
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData('text/plain');
+        const html = event.clipboardData?.getData('text/html');
+
+        const isMarkdownTable = /\|[\s-]*:?---[:\s-]*\|/.test(text || '');
+        const isMarkdownGeneral = text ? /^\s*#|^\s*[-*+] |^\s*\||\[.*\]\(.*\)|(\*\*|__).*(\*\*|__)|`.*`|^\|.*\|/m.test(text) : false;
+
+        // If it's already HTML, we usually let Tiptap handle it, 
+        // UNLESS it looks like a markdown table (which Tiptap might not parse well from plain text)
+        if (html && !isMarkdownTable) return false;
+
+        if (text && (isMarkdownGeneral || isMarkdownTable)) {
+          console.log('Markdown detected in paste, converting...');
+            // We use an async IIFE because handlePaste expects a boolean return but processing might be async
+            (async () => {
+              try {
+                // Parse markdown to HTML
+                const parsedHtml = await marked.parse(text);
+                
+                // Use NoteImporter's robust processing (handles tables, task lists, etc.)
+                const processedHtml = await NoteImporter.processHtmlForEditor(parsedHtml);
+                
+                // Final sanitize
+                const cleanHtml = DOMPurify.sanitize(processedHtml, {
+                  ADD_ATTR: ['data-type', 'data-checked'], // Allow Tiptap specific attributes
+                  ADD_TAGS: ['table', 'thead', 'tbody', 'tr', 'th', 'td']
+                });
+                
+                if (editor) {
+                  editor.commands.insertContent(cleanHtml);
+                }
+              } catch (error) {
+                console.error('Error parsing markdown on paste:', error);
+                // Fallback to default paste if parsing fails
+                document.execCommand('insertText', false, text);
+              }
+            })();
+            return true; // We handled the paste
+        }
+        return false;
+      }
     },
   });
 
@@ -636,6 +682,24 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                     </div>
                   </HoverCardContent>
                 </HoverCard>
+              </TooltipProvider>
+
+              <TooltipProvider delay={0}>
+                <Tooltip>
+                  <TooltipTrigger render={<div className="flex items-center justify-center mt-3" />}>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => editor && copyMarkdownToClipboard(editor.getHTML())}
+                      className="h-10 w-10 rounded-full shadow-lg border border-border/50 bg-background/80 backdrop-blur-sm hover:bg-accent transition-all duration-300"
+                    >
+                      <Copy className="w-5 h-5 text-muted-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Copy as Markdown</p>
+                  </TooltipContent>
+                </Tooltip>
               </TooltipProvider>
             </div>
           </div>

@@ -47,6 +47,7 @@ interface MainHeaderProps {
   onExportPDF?: () => void;
   onExportImage?: () => void;
   onExportMarkdown?: () => void;
+  onCopyMarkdown?: () => void;
   onImportMarkdown?: () => void;
   onShowHistory?: () => void;
 }
@@ -75,6 +76,7 @@ export const MainHeader = React.memo(({
   onExportPDF,
   onExportImage,
   onExportMarkdown,
+  onCopyMarkdown,
   onImportMarkdown,
   onShowHistory,
 }: MainHeaderProps) => {
@@ -267,6 +269,7 @@ export const MainHeader = React.memo(({
               onExportPDF={onExportPDF}
               onExportImage={onExportImage}
               onExportMarkdown={onExportMarkdown}
+              onCopyMarkdown={onCopyMarkdown}
               onImportMarkdown={onImportMarkdown}
               isOnline={isOnline}
               isPublicView={isPublicView}

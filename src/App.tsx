@@ -4,6 +4,8 @@ import {
   Node,
   ReactFlowProvider,
 } from '@xyflow/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getMarkdownFromHtml, copyMarkdownToClipboard } from './lib/markdownUtils';
 import '@xyflow/react/dist/style.css';
 import TurndownService from 'turndown';
 import { marked } from 'marked';
@@ -982,58 +984,16 @@ function AppContent() {
     setIsImportNoteModalOpen(true);
   }, []);
 
+  const handleCopyMarkdown = useCallback(async () => {
+    if (activeNote) {
+      await copyMarkdownToClipboard(activeNote.content);
+    }
+  }, [activeNote]);
+
   const executeExportMarkdown = useCallback(() => {
     if (!activeNote) return;
-    const turndownService = new TurndownService({
-      headingStyle: 'atx',
-      codeBlockStyle: 'fenced',
-      bulletListMarker: '-'
-    });
-
-    // Custom rule for Task Lists (GFM standard)
-    turndownService.addRule('taskList', {
-      filter: (node) => 
-        node.nodeName === 'LI' && 
-        node.parentElement?.getAttribute('data-type') === 'taskList',
-      replacement: (content, node) => {
-        const checked = (node as HTMLElement).getAttribute('data-checked') === 'true';
-        return `- [${checked ? 'x' : ' '}] ${content.trim()}\n`;
-      }
-    });
-
-    // Custom rule for Tables (GFM standard)
-    turndownService.addRule('table', {
-      filter: 'table',
-      replacement: (content) => `\n\n${content}\n\n`
-    });
-
-    turndownService.addRule('tableRow', {
-      filter: 'tr',
-      replacement: (content, node) => {
-        let separator = '';
-        const parent = node.parentElement;
-        
-        // If this is the first row of a header or the first row of a table (fallback)
-        // we need to add the Markdown table separator line (|---|---|...)
-        const isHeaderRow = parent?.nodeName === 'THEAD' || 
-                           (!parent?.querySelector('thead') && node === parent?.firstElementChild);
-
-        if (isHeaderRow) {
-          const cellCount = (node as HTMLElement).querySelectorAll('th, td').length;
-          separator = '|' + '---|'.repeat(cellCount) + '\n';
-        }
-        
-        return '|' + content + '\n' + separator;
-      }
-    });
-
-    turndownService.addRule('tableCell', {
-      filter: ['th', 'td'],
-      replacement: (content) => ` ${content.trim()} |`
-    });
     
-    // Add custom rule for tables if used in Tiptap
-    const markdown = turndownService.turndown(activeNote.content);
+    const markdown = getMarkdownFromHtml(activeNote.content);
     const fileName = `${(activeNote.title || 'Note').replace(/\s+/g, '_').toLowerCase()}.md`;
     
     const blob = new Blob([markdown], { type: 'text/markdown' });
@@ -1122,7 +1082,20 @@ function AppContent() {
           sidebarView={sidebarView} onViewChange={handleViewChange}
           hasMoreProjects={hasMoreProjects} hasMoreDiagrams={hasMoreDiagrams} hasMoreNotes={hasMoreNotes} hasMoreDrawings={hasMoreDrawings} hasMoreFlowcharts={hasMoreFlowcharts}
           onLoadMoreProjects={() => fetchProjects(true, debouncedSearchQuery)} onLoadMoreDiagrams={() => fetchDiagrams(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
-          onLoadMoreNotes={() => fetchNotes(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)} onLoadMoreDrawings={() => fetchDrawings(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
+          onLoadMoreNotes={() => fetchNotes(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)} 
+          onNoteCopyMarkdown={async (id) => {
+            const note = notes.find(n => n.id === id);
+            if (note) await copyMarkdownToClipboard(note.content);
+          }}
+          onNoteImportMarkdown={(id) => {
+            handleNoteSelect(id);
+            setTimeout(() => setIsImportNoteModalOpen(true), 100);
+          }}
+          onNoteExportMarkdown={(id) => {
+            handleNoteSelect(id);
+            setTimeout(() => setIsExportNoteModalOpen(true), 100);
+          }}
+          onLoadMoreDrawings={() => fetchDrawings(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
           onLoadMoreFlowcharts={() => fetchFlowcharts(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
           searchQuery={searchQuery} onSearchChange={setSearchQuery} user={user} isOnline={isOnline} isInstallable={isInstallable} onInstall={installApp}
         />
@@ -1166,6 +1139,7 @@ function AppContent() {
             }
           }}
           onExportMarkdown={handleExportMarkdown}
+          onCopyMarkdown={handleCopyMarkdown}
           onImportMarkdown={handleImportMarkdown}
           onShowHistory={() => setIsHistoryModalOpen(true)}
         />
