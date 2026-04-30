@@ -752,12 +752,19 @@ function AppContent() {
     notesSaveTimeout.current = setTimeout(async () => {
       // SAFETY: Wait if still loading/refreshing
       if (isRefreshing || isNoteItemLoading) return;
-      const n = notes.find(n => String(n.id) === String(activeNoteId));
-      if (n) await saveNote(n);
+      
+      const n = notes.find(n => String(n.id) === String(noteId));
+      if (n) {
+        // CRITICAL: We must use the 'content' argument from the outer scope 
+        // which contains the LATEST change, rather than 'n.content' from 
+        // the potentially stale 'notes' state array.
+        await saveNote({ ...n, content });
+      }
+      
       lastSaveCallRef.current = Date.now();
       setIsLocalSaving(false);
       triggerDebouncedSync();
-      broadcastMessage(BroadcastMessageType.DRAFT_UPDATED, DraftType.NOTES, activeNoteId);
+      broadcastMessage(BroadcastMessageType.DRAFT_UPDATED, DraftType.NOTES, noteId);
     }, 800);
   }, [activeNoteId, notes, saveNote, setNotesList, triggerDebouncedSync, isRefreshing, isNoteItemLoading, broadcastMessage]);
 
