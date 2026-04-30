@@ -13,6 +13,9 @@ import {
   FolderPlus,
   AlertTriangle,
   Globe,
+  Copy,
+  Upload,
+  Download,
 } from "lucide-react"
 import { Skeleton } from "./ui/skeleton"
 import { Badge } from "./ui/badge"
@@ -117,6 +120,9 @@ export function NavProjects({
   isNotesLoading,
   isDrawingsLoading,
   isFlowchartsLoading,
+  onNoteCopyMarkdown,
+  onNoteImportMarkdown,
+  onNoteExportMarkdown,
 }: {
   projects: {
     id: number | string
@@ -175,6 +181,9 @@ export function NavProjects({
   onLoadMoreProjects?: () => void
   onLoadMoreDiagrams?: () => void
   onLoadMoreNotes?: () => void
+  onNoteCopyMarkdown?: (id: number | string) => void
+  onNoteImportMarkdown?: (id: number | string) => void
+  onNoteExportMarkdown?: (id: number | string) => void
   onLoadMoreDrawings?: () => void
   onLoadMoreFlowcharts?: () => void
   isOnline: boolean
@@ -588,6 +597,27 @@ export function NavProjects({
                         <Edit2 className="mr-2 size-4" />
                         Rename
                       </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        disabled={!isOnline} 
+                        onClick={() => onNoteCopyMarkdown?.(note.id)}
+                      >
+                        <Copy className="mr-2 size-4" />
+                        Copy Markdown
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        disabled={!isOnline} 
+                        onClick={() => onNoteImportMarkdown?.(note.id)}
+                      >
+                        <Upload className="mr-2 size-4" />
+                        Import
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        disabled={!isOnline} 
+                        onClick={() => onNoteExportMarkdown?.(note.id)}
+                      >
+                        <Download className="mr-2 size-4" />
+                        Export
+                      </DropdownMenuItem>
                       <DropdownMenuItem disabled={!isOnline} className="text-destructive focus:text-destructive" onClick={() => {
                         setDeletingFile({ id: note.id, type: 'notes' })
                         setIsDeleteConfirmOpen(true)
@@ -640,6 +670,27 @@ export function NavProjects({
                           }}>
                             <Edit2 className="mr-2 size-4" />
                             Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            disabled={!isOnline} 
+                            onClick={() => onNoteCopyMarkdown?.(note.id)}
+                          >
+                            <Copy className="mr-2 size-4" />
+                            Copy Markdown
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            disabled={!isOnline} 
+                            onClick={() => onNoteImportMarkdown?.(note.id)}
+                          >
+                            <Upload className="mr-2 size-4" />
+                            Import
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            disabled={!isOnline} 
+                            onClick={() => onNoteExportMarkdown?.(note.id)}
+                          >
+                            <Download className="mr-2 size-4" />
+                            Export
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled={!isOnline} className="text-destructive focus:text-destructive" onClick={() => {
                             setDeletingFile({ id: note.id, type: 'notes' })

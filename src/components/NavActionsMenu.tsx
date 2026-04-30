@@ -36,6 +36,7 @@ interface NavActionsMenuProps {
   onExportPDF?: () => void;
   onExportImage?: () => void;
   onExportMarkdown?: () => void;
+  onCopyMarkdown?: () => void;
   onImportMarkdown?: () => void;
   isOnline: boolean;
   isPublicView?: boolean;
@@ -53,6 +54,7 @@ export const NavActionsMenu = ({
   onExportPDF,
   onExportImage,
   onExportMarkdown,
+  onCopyMarkdown,
   onImportMarkdown,
   isOnline,
   isPublicView = false,
@@ -192,6 +194,16 @@ export const NavActionsMenu = ({
           {documentType === 'notes' && !isPublicView && (
             <>
               <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                disabled={!isOnline} 
+                onClick={onCopyMarkdown}
+                className="gap-2 cursor-pointer flex items-center"
+              >
+                <div className="flex items-center gap-2 flex-1">
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                  <span>Copy Markdown</span>
+                </div>
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 disabled={!isOnline} 
                 onClick={onImportMarkdown}

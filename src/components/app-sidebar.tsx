@@ -87,6 +87,9 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onLoadMoreProjects?: () => void;
   onLoadMoreDiagrams?: () => void;
   onLoadMoreNotes?: () => void;
+  onNoteCopyMarkdown?: (id: number | string) => void;
+  onNoteImportMarkdown?: (id: number | string) => void;
+  onNoteExportMarkdown?: (id: number | string) => void;
   onLoadMoreDrawings?: () => void;
   onLoadMoreFlowcharts?: () => void;
   searchQuery: string;
@@ -148,6 +151,9 @@ export function AppSidebar({
   onLoadMoreProjects,
   onLoadMoreDiagrams,
   onLoadMoreNotes,
+  onNoteCopyMarkdown,
+  onNoteImportMarkdown,
+  onNoteExportMarkdown,
   onLoadMoreDrawings,
   onLoadMoreFlowcharts,
   searchQuery,
@@ -335,6 +341,9 @@ export function AppSidebar({
           onLoadMoreProjects={onLoadMoreProjects}
           onLoadMoreDiagrams={onLoadMoreDiagrams}
           onLoadMoreNotes={onLoadMoreNotes}
+          onNoteCopyMarkdown={onNoteCopyMarkdown}
+          onNoteImportMarkdown={onNoteImportMarkdown}
+          onNoteExportMarkdown={onNoteExportMarkdown}
           onLoadMoreDrawings={onLoadMoreDrawings}
           onLoadMoreFlowcharts={onLoadMoreFlowcharts}
           isOnline={isOnline}
