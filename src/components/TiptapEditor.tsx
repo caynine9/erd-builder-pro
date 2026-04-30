@@ -514,7 +514,39 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
         const isMarkdownTable = /\|[\s-]*:?---[:\s-]*\|/.test(text || '');
         const isMarkdownGeneral = text ? /^\s*#|^\s*[-*+] |^\s*\||\[.*\]\(.*\)|(\*\*|__).*(\*\*|__)|`.*`|^\|.*\|/m.test(text) : false;
 
-        // If it's already HTML, we usually let Tiptap handle it, 
+        // Detect Excel/Sheets/Table paste
+        const isTablePaste = html && (
+          html.includes('google-sheets-html-origin') || 
+          html.includes('office:excel') || 
+          html.includes('mso-') || 
+          (html.includes('<table') && (html.includes('style=') || html.includes('width=')))
+        );
+
+        if (isTablePaste && html) {
+          console.log('Excel/Sheets/HTML Table detected, cleaning and importing...');
+          (async () => {
+            try {
+              // Strip all inline styles, classes, and presentation attributes to ensure clean look
+              const cleanHtml = DOMPurify.sanitize(html, {
+                FORBID_ATTR: ['style', 'class', 'width', 'height', 'bgcolor', 'valign', 'align'],
+                ADD_TAGS: ['table', 'thead', 'tbody', 'tr', 'th', 'td', 'p', 'span', 'b', 'i', 'strong', 'em', 'ul', 'ol', 'li'],
+                ADD_ATTR: ['colspan', 'rowspan'] // Preserve structural attributes
+              });
+              
+              // Normalize structure via NoteImporter (ensures thead/tbody etc)
+              const processedHtml = await NoteImporter.processHtmlForEditor(cleanHtml);
+              
+              if (editor) {
+                editor.commands.insertContent(processedHtml);
+              }
+            } catch (error) {
+              console.error('Error processing table paste:', error);
+            }
+          })();
+          return true;
+        }
+
+        // If it's already HTML (but not a spreadsheet table), we usually let Tiptap handle it, 
         // UNLESS it looks like a markdown table (which Tiptap might not parse well from plain text)
         if (html && !isMarkdownTable) return false;
 
