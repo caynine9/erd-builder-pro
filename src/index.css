@@ -412,12 +412,13 @@ code:not(pre code) {
   font-size: 0.875rem !important;
 }
 
-.tiptap-editor p.is-editor-empty:first-child::before {
+.tiptap-editor .is-empty::before {
   color: var(--muted-foreground) !important;
   content: attr(data-placeholder) !important;
   float: left !important;
   height: 0 !important;
   pointer-events: none !important;
+  opacity: 0.5;
 }
 
 .ProseMirror:focus {

@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Node } from '@tiptap/pm/model';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
 
 export const SmartTableRow = TableRow.extend({
   addAttributes() {
@@ -20,6 +21,24 @@ export const SmartTableRow = TableRow.extend({
               : attributes.rowType === 'footer'
               ? 'bg-muted/30 font-semibold border-t-2 border-border/80'
               : ''
+          };
+        },
+      },
+    };
+  },
+});
+
+export const SmartTableHeader = TableHeader.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      formula: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-formula'),
+        renderHTML: attributes => {
+          if (!attributes.formula) return {};
+          return {
+            'data-formula': attributes.formula,
           };
         },
       },
@@ -121,7 +140,7 @@ export const SmartTableEngine = Extension.create({
 
                   // Apply formula attribute change immediately if needed
                   if (formula !== cellNode.attrs.formula) {
-                     tr.setNodeMarkup(cellPos, undefined, { ...cellNode.attrs, formula });
+                     tr.setNodeMarkup(tr.mapping.map(cellPos), undefined, { ...cellNode.attrs, formula });
                      modified = true;
                   }
 
@@ -169,10 +188,11 @@ export const SmartTableEngine = Extension.create({
                     const expectedText = formatNumber(finalValue);
                     const cell = row.cells[colIdx];
                     if (cell.text !== expectedText && cell.formula === cellFormula) {
-                      const pPos = cell.pos + 1;
+                      const startPos = tr.mapping.map(cell.pos + 1);
+                      const endPos = tr.mapping.map(cell.pos + cell.node.nodeSize - 1);
                       tr.replaceWith(
-                        pPos, 
-                        cell.pos + cell.node.nodeSize - 1, 
+                        startPos, 
+                        endPos, 
                         newState.schema.nodes.paragraph.create(null, expectedText ? newState.schema.text(expectedText) : null)
                       );
                       modified = true;
@@ -210,10 +230,11 @@ export const SmartTableEngine = Extension.create({
                     const expectedText = formatNumber(finalValue);
                     const cell = row.cells[colIdx];
                     if (cell.text !== expectedText && cell.formula === cellFormula) {
-                      const pPos = cell.pos + 1;
+                      const startPos = tr.mapping.map(cell.pos + 1);
+                      const endPos = tr.mapping.map(cell.pos + cell.node.nodeSize - 1);
                       tr.replaceWith(
-                        pPos, 
-                        cell.pos + cell.node.nodeSize - 1, 
+                        startPos, 
+                        endPos, 
                         newState.schema.nodes.paragraph.create(null, expectedText ? newState.schema.text(expectedText) : null)
                       );
                       modified = true;

@@ -7,11 +7,10 @@ import ImageResize from 'tiptap-extension-resize-image';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
-import { TableHeader } from '@tiptap/extension-table-header';
 import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
 import TextAlign from '@tiptap/extension-text-align';
-import { SmartTableRow, SmartTableCell, SmartTableEngine } from '../lib/tiptap/smart-table';
+import { SmartTableRow, SmartTableCell, SmartTableHeader, SmartTableEngine } from '../lib/tiptap/smart-table';
 import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
 import Underline from '@tiptap/extension-underline';
@@ -593,18 +592,28 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
     TaskItem.configure({
       nested: true,
     }),
+    SmartTableRow,
+    SmartTableHeader,
+    SmartTableCell,
     Table.configure({
       resizable: true,
+      lastColumnResizable: false,
     }),
-    SmartTableRow,
-    TableHeader,
-    SmartTableCell,
     SmartTableEngine,
     TextAlign.configure({
       types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
     }),
     Placeholder.configure({
-      placeholder: "Type '/' for commands or start writing...",
+      includeChildren: true,
+      placeholder: ({ node, editor }) => {
+        if (editor.isEmpty) {
+          return "Type '/' for commands or start writing...";
+        }
+        if (node.type.name === 'paragraph') {
+          return "Text";
+        }
+        return "";
+      },
     }),
     TiptapImage.configure({
       inline: true,
