@@ -694,10 +694,10 @@ function AppContent() {
         // Notes specific shortcuts - only active when a note is open
         if (!activeNoteId) return;
 
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'e') {
           e.preventDefault();
           setIsExportNoteModalOpen(true);
-        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i') {
+        } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'i') {
           e.preventDefault();
           setIsImportNoteModalOpen(true);
         }

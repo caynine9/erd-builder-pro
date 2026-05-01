@@ -356,6 +356,12 @@ const CustomKeyboardShortcuts = Extension.create({
         this.editor.commands.insertTable({ rows: 3, cols: 3, withHeaderRow: true });
         return true;
       },
+      'Mod-Shift-l': () => this.editor.commands.setTextAlign('left'),
+      'Mod-Shift-L': () => this.editor.commands.setTextAlign('left'),
+      'Mod-Shift-c': () => this.editor.commands.setTextAlign('center'),
+      'Mod-Shift-C': () => this.editor.commands.setTextAlign('center'),
+      'Mod-Shift-r': () => this.editor.commands.setTextAlign('right'),
+      'Mod-Shift-R': () => this.editor.commands.setTextAlign('right'),
     }
   },
 });
@@ -1117,7 +1123,7 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                       }
                     />
                     <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-                      Alignment
+                      Alignment (⌘ ⇧ L/C/R)
                     </TooltipContent>
                   </Tooltip>
                   <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[130px] flex flex-col" sideOffset={5} align="start">
@@ -1221,7 +1227,7 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                       }
                     />
                     <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-                      Alignment
+                      Alignment (⌘ ⇧ L/C/R)
                     </TooltipContent>
                   </Tooltip>
                   <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[130px] flex flex-col" sideOffset={5} align="start">

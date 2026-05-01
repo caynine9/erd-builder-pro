@@ -215,6 +215,7 @@ export const NavActionsMenu = ({
                 </div>
                 <div className="ml-auto flex items-center gap-0.5 text-muted-foreground/60">
                   <span className="text-[13px] font-sans leading-none">⌘</span>
+                  <span className="text-[13px] font-sans leading-none">⇧</span>
                   <span className="text-[15px] font-mono font-bold mt-0.5">I</span>
                 </div>
               </DropdownMenuItem>
@@ -229,6 +230,7 @@ export const NavActionsMenu = ({
                 </div>
                 <div className="ml-auto flex items-center gap-0.5 text-muted-foreground/60">
                   <span className="text-[13px] font-sans leading-none">⌘</span>
+                  <span className="text-[13px] font-sans leading-none">⇧</span>
                   <span className="text-[15px] font-mono font-bold mt-0.5">E</span>
                 </div>
               </DropdownMenuItem>

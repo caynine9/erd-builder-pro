@@ -109,10 +109,12 @@ export const SmartTableEngine = Extension.create({
                   const text = cellNode.textContent.trim().toLowerCase();
                   
                   let formula = cellNode.attrs.formula;
-                  // Trigger formula if user types =sum or =SUM
+                  // Trigger formula if user types =sum, =avg, or =average
                   if (text === '=sum' || text === '=sum()') {
                     formula = 'sum';
-                  } else if (text === '' && formula === 'sum') {
+                  } else if (text === '=avg' || text === '=avg()' || text === '=average' || text === '=average()') {
+                    formula = 'avg';
+                  } else if (text === '' && (formula === 'sum' || formula === 'avg')) {
                     // Remove formula if user clears the cell
                     formula = null;
                   }
@@ -137,22 +139,36 @@ export const SmartTableEngine = Extension.create({
               const numCols = Math.max(...rows.map(r => r.cells.length));
               
               for (let colIdx = 0; colIdx < numCols; colIdx++) {
-                // Calculate Subtotals (Header rows)
+                // Calculate Subtotals/Averages (Header rows)
                 for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
                   const row = rows[rowIdx];
-                  if (row.type === 'header' && row.cells[colIdx]?.formula === 'sum') {
+                  const cellFormula = row.cells[colIdx]?.formula;
+                  
+                  if (row.type === 'header' && (cellFormula === 'sum' || cellFormula === 'avg')) {
                     let sum = 0;
+                    let count = 0;
                     for (let i = rowIdx + 1; i < rows.length; i++) {
                       const targetRow = rows[i];
                       if (targetRow.type === 'header' || targetRow.type === 'footer') break;
                       if (targetRow.type === 'data' && targetRow.cells[colIdx]) {
-                        sum += parseNumber(targetRow.cells[colIdx].text);
+                        const cellText = targetRow.cells[colIdx].text;
+                        if (cellText !== '') {
+                          sum += parseNumber(cellText);
+                          count++;
+                        }
                       }
                     }
                     
-                    const expectedText = formatNumber(sum);
+                    let finalValue = 0;
+                    if (cellFormula === 'sum') {
+                      finalValue = sum;
+                    } else if (cellFormula === 'avg') {
+                      finalValue = count > 0 ? Math.round((sum / count) * 100) / 100 : 0;
+                    }
+                    
+                    const expectedText = formatNumber(finalValue);
                     const cell = row.cells[colIdx];
-                    if (cell.text !== expectedText && cell.formula === 'sum') {
+                    if (cell.text !== expectedText && cell.formula === cellFormula) {
                       const pPos = cell.pos + 1;
                       tr.replaceWith(
                         pPos, 
@@ -164,22 +180,36 @@ export const SmartTableEngine = Extension.create({
                   }
                 }
 
-                // Calculate Grand Totals (Footer rows)
+                // Calculate Grand Totals/Averages (Footer rows)
                 for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
                   const row = rows[rowIdx];
-                  if (row.type === 'footer' && row.cells[colIdx]?.formula === 'sum') {
+                  const cellFormula = row.cells[colIdx]?.formula;
+                  
+                  if (row.type === 'footer' && (cellFormula === 'sum' || cellFormula === 'avg')) {
                     let sum = 0;
+                    let count = 0;
                     for (let i = 0; i < rows.length; i++) {
                       const targetRow = rows[i];
-                      // Grand total only sums data rows to avoid double counting
+                      // Grand total only computes data rows to avoid double counting
                       if (targetRow.type === 'data' && targetRow.cells[colIdx]) {
-                        sum += parseNumber(targetRow.cells[colIdx].text);
+                        const cellText = targetRow.cells[colIdx].text;
+                        if (cellText !== '') {
+                          sum += parseNumber(cellText);
+                          count++;
+                        }
                       }
                     }
                     
-                    const expectedText = formatNumber(sum);
+                    let finalValue = 0;
+                    if (cellFormula === 'sum') {
+                      finalValue = sum;
+                    } else if (cellFormula === 'avg') {
+                      finalValue = count > 0 ? Math.round((sum / count) * 100) / 100 : 0;
+                    }
+                    
+                    const expectedText = formatNumber(finalValue);
                     const cell = row.cells[colIdx];
-                    if (cell.text !== expectedText && cell.formula === 'sum') {
+                    if (cell.text !== expectedText && cell.formula === cellFormula) {
                       const pPos = cell.pos + 1;
                       tr.replaceWith(
                         pPos, 
