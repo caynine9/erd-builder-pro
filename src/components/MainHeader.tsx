@@ -50,6 +50,7 @@ interface MainHeaderProps {
   onCopyMarkdown?: () => void;
   onImportMarkdown?: () => void;
   onShowHistory?: () => void;
+  isGuest?: boolean;
 }
 
 export const MainHeader = React.memo(({
@@ -79,6 +80,7 @@ export const MainHeader = React.memo(({
   onCopyMarkdown,
   onImportMarkdown,
   onShowHistory,
+  isGuest = false,
 }: MainHeaderProps) => {
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
   const [isMac, setIsMac] = React.useState(false);
@@ -239,7 +241,7 @@ export const MainHeader = React.memo(({
                   </div>
                 )}
 
-                {onShowHistory && (
+                {onShowHistory && !isGuest && !isPublicView && (
                   <TooltipProvider delay={0}>
                     <Tooltip>
                       <TooltipTrigger render={

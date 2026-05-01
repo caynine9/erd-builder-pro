@@ -115,7 +115,7 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
             >
               <DropdownMenuItem onClick={handleGenerate} className="cursor-pointer hover:bg-white/10 focus:bg-white/10">
                 <Database className="w-4 h-4 mr-2" />
-                Generate SQL
+                Generate Schema
               </DropdownMenuItem>
               
               <DropdownMenuSeparator className="bg-white/10" />

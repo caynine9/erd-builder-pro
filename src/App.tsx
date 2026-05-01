@@ -1149,6 +1149,7 @@ function AppContent() {
           onCopyMarkdown={handleCopyMarkdown}
           onImportMarkdown={handleImportMarkdown}
           onShowHistory={() => setIsHistoryModalOpen(true)}
+          isGuest={isGuest}
         />
 
         <ImportNoteModal 
