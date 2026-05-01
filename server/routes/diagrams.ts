@@ -353,6 +353,7 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
 
       // ✅ STEP 7: Upsert columns
       const allColumns: any[] = [];
+      const newColIds = new Set();
       for (const entity of entities) {
         for (const col of entity.columns) {
           allColumns.push({
@@ -365,8 +366,30 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
             enum_values: col.enum_values || null,
             sort_order: col.sort_order || 0
           });
+          newColIds.add(col.id);
         }
       }
+
+      // ✅ STEP 7.5: Delete removed columns from kept entities
+      const keptEntityIds = Array.from(existingEntityIds).filter(id => newEntityIds.has(id));
+      if (keptEntityIds.length > 0) {
+        const { data: existingColumns } = await supabase
+          .from("columns")
+          .select("id")
+          .in("entity_id", keptEntityIds);
+          
+        const existingColIds = new Set(existingColumns?.map((c: any) => c.id) || []);
+        const colsToDelete = Array.from(existingColIds).filter(id => !newColIds.has(id));
+        
+        if (colsToDelete.length > 0) {
+          const { error: delColError } = await supabase
+            .from("columns")
+            .delete()
+            .in("id", colsToDelete);
+          if (delColError) throw delColError;
+        }
+      }
+
       if (allColumns.length > 0) {
         const { error: upsertColError } = await supabase
           .from("columns")
