@@ -931,7 +931,7 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
               editor={editor}
               pluginKey="textMenu"
               shouldShow={({ editor, state }) => {
-                return editor.isFocused && editor.isEditable && !state.selection.empty && !editor.isActive('table');
+                return editor.isFocused && editor.isEditable && !state.selection.empty;
               }}
               {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'bottom-start', appendTo: () => document.body } } as any)}
               className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
@@ -1161,8 +1161,9 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
             <BubbleMenu
               editor={editor}
               pluginKey="tableMenu"
+              updateDelay={0}
               shouldShow={({ editor }) => {
-                return editor.isActive('table');
+                return editor.isFocused && editor.isActive('table');
               }}
               {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'top', appendTo: () => document.body } } as any)}
               className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
@@ -1255,6 +1256,58 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                         {editor.isActive({ textAlign: value }) && <Check className="w-3.5 h-3.5 opacity-70" />}
                       </DropdownMenu.Item>
                     ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip>
+                    <TooltipTrigger 
+                      render={
+                        <DropdownMenu.Trigger asChild>
+                          <button 
+                            className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none"
+                          >
+                            <LucideIcons.Menu className="w-4 h-4" />
+                          </button>
+                        </DropdownMenu.Trigger>
+                      }
+                    />
+                    <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                      Table Options
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[160px] flex flex-col" sideOffset={5} align="end">
+                    <DropdownMenu.Item
+                      onSelect={() => editor.chain().focus().addColumnAfter().run()}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                    >
+                      <LucideIcons.Columns className="w-4 h-4" />
+                      <span className="flex-1">Add Column</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => editor.chain().focus().deleteColumn().run()}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
+                    >
+                      <LucideIcons.Columns className="w-4 h-4" />
+                      <span className="flex-1">Delete Column</span>
+                    </DropdownMenu.Item>
+                    <div className="h-[1px] bg-border my-1" />
+                    <DropdownMenu.Item
+                      onSelect={() => editor.chain().focus().addRowAfter().run()}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                    >
+                      <LucideIcons.Layout className="w-4 h-4" />
+                      <span className="flex-1">Add Row</span>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={() => editor.chain().focus().deleteRow().run()}
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
+                    >
+                      <LucideIcons.Layout className="w-4 h-4" />
+                      <span className="flex-1">Delete Row</span>
+                    </DropdownMenu.Item>
                   </DropdownMenu.Content>
                 </DropdownMenu.Root>
               </TooltipProvider>
