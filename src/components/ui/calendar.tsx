@@ -16,21 +16,29 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-0 relative", className)}
+      className={cn("p-3", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row",
-        month: "flex flex-col items-center",
-        month_caption: "hidden", // Completely hide the header area
+        months: "flex flex-col sm:flex-row gap-2",
+        month: "flex flex-col gap-4",
+        month_caption: "hidden",
         caption_label: "hidden",
         nav: "hidden",
-        month_grid: "mx-auto border-collapse",
-        weekdays: "flex justify-center",
+        button_previous: cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1"
+        ),
+        button_next: cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1"
+        ),
+        month_grid: "w-full border-collapse space-y-1",
+        weekdays: "flex",
         weekday:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] text-center",
-        week: "flex mt-2 justify-center",
+          "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+        week: "flex w-full mt-2",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
+          "h-8 w-8 p-0 font-normal aria-selected:opacity-100"
         ),
         range_start: "day-range-start",
         range_end: "day-range-end",
