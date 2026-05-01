@@ -8,8 +8,10 @@ import {
   Minus, Type, Search, ChevronRight,
   ChevronLeft, Undo, Redo, Columns,
   Table as TableHeader, AlertCircle,
-  Hash, Layout, Trash2, ChevronDown, Tag
+  Hash, Layout, Trash2, ChevronDown, Tag,
+  Calendar as CalendarIcon, Clock
 } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
 import * as LucideIcons from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,8 +76,15 @@ const MAIN_ITEMS: SlashMenuItem[] = [
       { title: 'Delete Column', icon: <Columns className="w-4 h-4 text-destructive" />, command: (editor) => editor.chain().focus().deleteColumn().run() },
       { title: 'Add Row', icon: <Layout className="w-4 h-4" />, command: (editor) => editor.chain().focus().addRowAfter().run() },
       { title: 'Delete Row', icon: <Layout className="w-4 h-4 text-destructive" />, command: (editor) => editor.chain().focus().deleteRow().run() },
-      { title: 'Delete Table', icon: <Trash2 className="w-4 h-4 text-destructive" />, command: (editor, range) => editor.chain().focus().deleteTable().run() },
+      { title: 'Delete Table', icon: <Trash2 className="w-4 h-4 text-destructive" />, command: (editor) => editor.chain().focus().deleteTable().run() },
     ]
+  },
+
+  { 
+    title: 'Insert Calendar', 
+    icon: <CalendarIcon className="w-4 h-4" />, 
+    category: 'Advanced',
+    command: (editor, range) => editor.chain().focus().deleteRange(range).insertContent({ type: 'calendar', attrs: { date: new Date().toISOString(), autoOpen: true } }).run()
   },
 
   // History
@@ -155,8 +164,8 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
             setNavStack([...navStack, item.children]);
             setIndexStack(prev => [...prev, 0]);
           } else if (item.command) {
-            item.command(editor, range);
             onClose();
+            item.command(editor, range);
           }
         }
       } else if (e.key === 'Backspace' && query === '' && isSubMenu) {
@@ -234,36 +243,40 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
           <div className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider text-muted-foreground/60">{cat}</div>
           {catItems.map((item, index) => {
             const globalIndex = filteredItems.indexOf(item);
-            return <ItemRow key={item.title} item={item} isSelected={globalIndex === selectedIndex} index={globalIndex} onClick={() => {
-              if (item.customView) {
-                setNavStack([...navStack, item.customView]);
-                setIndexStack(prev => [...prev, 0]);
-              } else if (item.children) {
-                setNavStack([...navStack, item.children]);
-                setIndexStack(prev => [...prev, 0]);
-              } else if (item.command) { 
-                item.command(editor, range); 
-                onClose(); 
-              }
-            }} />;
+            return <ItemRow key={item.title} item={item} isSelected={globalIndex === selectedIndex} index={globalIndex} 
+              onMouseEnter={() => setSelectedIndex(globalIndex)}
+              onClick={() => {
+                if (item.customView) {
+                  setNavStack([...navStack, item.customView]);
+                  setIndexStack(prev => [...prev, 0]);
+                } else if (item.children) {
+                  setNavStack([...navStack, item.children]);
+                  setIndexStack(prev => [...prev, 0]);
+                } else if (item.command) { 
+                  onClose();
+                  item.command(editor, range); 
+                }
+              }} />;
           })}
         </div>
       );
     })
   ) : (
     filteredItems.map((item, index) => (
-      <ItemRow key={item.title} item={item} isSelected={index === selectedIndex} index={index} onClick={() => {
-        if (item.customView) {
-          setNavStack([...navStack, item.customView]);
-          setIndexStack(prev => [...prev, 0]);
-        } else if (item.children) {
-          setNavStack([...navStack, item.children]);
-          setIndexStack(prev => [...prev, 0]);
-        } else if (item.command) { 
-          item.command(editor, range); 
-          onClose(); 
-        }
-      }} />
+      <ItemRow key={item.title} item={item} isSelected={index === selectedIndex} index={index} 
+        onMouseEnter={() => setSelectedIndex(index)}
+        onClick={() => {
+          if (item.customView) {
+            setNavStack([...navStack, item.customView]);
+            setIndexStack(prev => [...prev, 0]);
+          } else if (item.children) {
+            setNavStack([...navStack, item.children]);
+            setIndexStack(prev => [...prev, 0]);
+          } else if (item.command) { 
+            onClose();
+            item.command(editor, range); 
+          }
+        }} />
     ))
   );
 
@@ -299,10 +312,12 @@ export const SlashMenu: React.FC<SlashMenuProps> = ({
   );
 };
 
-const ItemRow = ({ item, isSelected, index, onClick }: { item: SlashMenuItem, isSelected: boolean, index: number, onClick: () => void }) => (
+const ItemRow = ({ item, isSelected, index, onClick, onMouseEnter }: { item: SlashMenuItem, isSelected: boolean, index: number, onClick: () => void, onMouseEnter: () => void }) => (
   <button
     data-index={index}
+    onPointerDown={(e) => e.preventDefault()}
     onClick={onClick}
+    onMouseEnter={onMouseEnter}
     className={cn(
       "w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md text-left transition-all duration-100 group relative",
       isSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/50 text-foreground/80"

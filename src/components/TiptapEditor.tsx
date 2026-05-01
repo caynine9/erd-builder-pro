@@ -15,7 +15,13 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
 import Underline from '@tiptap/extension-underline';
-import { Underline as UnderlineIcon } from 'lucide-react';
+import { Underline as UnderlineIcon, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { format, addDays, subDays } from 'date-fns';
+import { Calendar as UICalendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Badge as UIBadge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { CalendarPicker } from "./CalendarPicker"
 
 import {
   Check,
@@ -354,6 +360,150 @@ const CustomKeyboardShortcuts = Extension.create({
   },
 });
 
+const CalendarNode = Node.create({
+  name: 'calendar',
+  group: 'inline',
+  inline: true,
+  selectable: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      date: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-date'),
+        renderHTML: attributes => {
+          if (!attributes.date) return {};
+          return { 'data-date': attributes.date };
+        },
+      },
+      label: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-label'),
+        renderHTML: attributes => {
+          if (!attributes.label) return {};
+          return { 'data-label': attributes.label };
+        },
+      },
+      allDay: {
+        default: true,
+        parseHTML: element => element.getAttribute('data-all-day') === 'true',
+        renderHTML: attributes => {
+          return { 'data-all-day': attributes.allDay ? 'true' : 'false' };
+        },
+      },
+      timeFrom: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-time-from'),
+        renderHTML: attributes => {
+          if (!attributes.timeFrom) return {};
+          return { 'data-time-from': attributes.timeFrom };
+        },
+      },
+      timeTo: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-time-to'),
+        renderHTML: attributes => {
+          if (!attributes.timeTo) return {};
+          return { 'data-time-to': attributes.timeTo };
+        },
+      },
+      autoOpen: {
+        default: false,
+        parseHTML: () => false,
+        renderHTML: () => ({}),
+      }
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-type="calendar"]' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['span', mergeAttributes(HTMLAttributes, { 'data-type': 'calendar' })];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(({ node, updateAttributes, deleteNode }) => {
+      const { date, label, allDay, timeFrom, timeTo, autoOpen } = node.attrs;
+      const [isOpen, setIsOpen] = React.useState(autoOpen || false);
+
+      const displayDate = React.useMemo(() => {
+        if (label) return label;
+        if (!date) return 'Select date...';
+        const dateStr = format(new Date(date), 'MMM d, yyyy');
+        if (!allDay && timeFrom) {
+          return `${dateStr} ${timeFrom.substring(0, 5)}${timeTo ? ` - ${timeTo.substring(0, 5)}` : ''}`;
+        }
+        return dateStr;
+      }, [date, label, allDay, timeFrom, timeTo]);
+
+      const PRESETS = [
+        { label: 'Yesterday', value: subDays(new Date(), 1) },
+        { label: 'Today', value: new Date() },
+        { label: 'Tomorrow', value: addDays(new Date(), 1) },
+        { label: 'In 1 week', value: addDays(new Date(), 7) },
+        { label: 'In 2 weeks', value: addDays(new Date(), 14) },
+      ];
+
+      return (
+        <NodeViewWrapper as="span" className="inline-block mx-0.5 align-middle leading-none">
+          <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <TooltipProvider delay={200}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <PopoverTrigger
+                      render={
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="cursor-pointer select-none transition-colors hover:text-muted-foreground"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setIsOpen(true);
+                          }}
+                        >
+                          {displayDate}
+                        </span>
+                      }
+                    />
+                  }
+                />
+                <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                  Edit date
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <PopoverContent 
+              className="w-auto p-0 z-[10001] shadow-2xl border-border/50 flex flex-col bg-popover" 
+              align="center"
+              sideOffset={4}
+            >
+              <ScrollArea 
+                className="flex-1 w-full"
+                style={{ maxHeight: 'calc(var(--available-height, 85vh) - 16px)' }}
+              >
+                <CalendarPicker
+                  date={date}
+                  allDay={allDay}
+                  timeFrom={timeFrom}
+                  timeTo={timeTo}
+                  onSelect={updateAttributes}
+                  onDelete={deleteNode}
+                />
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+        </NodeViewWrapper>
+      );
+    });
+  },
+});
+
 
 export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEditorProps) {
   const [headings, setHeadings] = React.useState<HeadingInfo[]>([]);
@@ -459,6 +609,7 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
       },
     }),
     Underline,
+    CalendarNode,
     CustomKeyboardShortcuts,
   ], []);
 
@@ -466,63 +617,13 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
     extensions,
     content,
     editable: !isReadOnly,
-    onUpdate({ editor }) {
-      if (onChange) {
-        onChange(editor.getHTML());
-      }
-      const extracted: HeadingInfo[] = [];
-      editor.state.doc.descendants((node, pos) => {
-        if (node.type.name === 'heading' && node.attrs.level <= 5) {
-          extracted.push({
-            text: node.textContent,
-            level: node.attrs.level,
-            pos: pos + 1
-          });
-        }
-      });
-      setHeadings(extracted);
-
-      // Slash Menu Logic
-      const { selection } = editor.state;
-      const { $from } = selection;
-      
-      // Get text from start of block to cursor
-      const textFromStartContent = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
-      const slashIndex = textFromStartContent.lastIndexOf('/');
-
-      if (slashIndex !== -1) {
-        const query = textFromStartContent.slice(slashIndex + 1);
-        // Only trigger if slash is at start or after a space
-        const charBeforeSlash = textFromStartContent[slashIndex - 1];
-        
-        if (!charBeforeSlash || charBeforeSlash === ' ') {
-          // Check if space exists after the slash (don't show menu if user typed "/ ")
-          if (!query.includes(' ')) {
-            const from = $from.pos - (textFromStartContent.length - slashIndex);
-            const to = $from.pos;
-            const coords = editor.view.coordsAtPos(from);
-            
-            setSlashMenu({
-              isOpen: true,
-              query,
-              range: { from, to },
-              coords
-            });
-            return;
-          }
-        }
-      }
-
-      if (slashMenu.isOpen) {
-        setSlashMenu(prev => ({ ...prev, isOpen: false }));
-      }
-    },
     onSelectionUpdate({ editor }) {
       setSelectionVersion(v => v + 1);
       // Close slash menu on selection change if cursor moved away
-      if (slashMenu.isOpen) {
-        setSlashMenu(prev => ({ ...prev, isOpen: false }));
-      }
+      setSlashMenu(prev => {
+        if (prev.isOpen) return { ...prev, isOpen: false };
+        return prev;
+      });
     },
     onFocus() {
       setSelectionVersion(v => v + 1);
@@ -614,7 +715,16 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
     if (editor && typeof content === 'string' && editor.getHTML() !== content) {
       editor.commands.setContent(content);
     }
-    if (editor) {
+  }, [editor, content]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleUpdate = () => {
+      if (onChange) {
+        onChange(editor.getHTML());
+      }
+
       const extracted: HeadingInfo[] = [];
       editor.state.doc.descendants((node, pos) => {
         if (node.type.name === 'heading' && node.attrs.level <= 5) {
@@ -626,8 +736,42 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
         }
       });
       setHeadings(extracted);
-    }
-  }, [content, editor]);
+
+      // Slash Menu Logic
+      const { selection } = editor.state;
+      const { $from } = selection;
+      
+      const textFromStartContent = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+      const slashIndex = textFromStartContent.lastIndexOf('/');
+
+      if (slashIndex !== -1) {
+        const query = textFromStartContent.slice(slashIndex + 1);
+        const charBeforeSlash = textFromStartContent[slashIndex - 1];
+        const isValidBoundary = !charBeforeSlash || /\s/.test(charBeforeSlash) || charBeforeSlash === '\ufffc';
+        
+        if (isValidBoundary) {
+          if (!query.includes(' ')) {
+            const from = $from.pos - (textFromStartContent.length - slashIndex);
+            const to = $from.pos;
+            const coords = editor.view.coordsAtPos(from);
+            
+            setSlashMenu({ isOpen: true, query, range: { from, to }, coords });
+            return;
+          }
+        }
+      }
+
+      setSlashMenu(prev => {
+        if (prev.isOpen) return { ...prev, isOpen: false };
+        return prev;
+      });
+    };
+
+    editor.on('update', handleUpdate);
+    return () => {
+      editor.off('update', handleUpdate);
+    };
+  }, [editor, onChange]);
 
   const openLinkDialog = () => {
     if (editor) {
