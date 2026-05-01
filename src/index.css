@@ -227,8 +227,7 @@ code:not(pre code) {
   font-size: 2.25rem !important;
   line-height: calc(var(--line-height) * 2) !important;
   min-height: calc(var(--line-height) * 2) !important;
-  display: flex !important;
-  align-items: center !important;
+  display: block !important;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
 }
@@ -238,8 +237,7 @@ code:not(pre code) {
 .tiptap-editor-lined h4,
 .tiptap-editor-lined h5,
 .tiptap-editor-lined h6 {
-  display: flex !important;
-  align-items: center !important;
+  display: block !important;
   margin-top: 0 !important;
   margin-bottom: 0 !important;
   line-height: var(--line-height) !important;

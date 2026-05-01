@@ -7,11 +7,11 @@ import ImageResize from 'tiptap-extension-resize-image';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import { Table } from '@tiptap/extension-table';
-import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
-import { TableRow } from '@tiptap/extension-table-row';
 import { Color } from '@tiptap/extension-color';
 import { TextStyle } from '@tiptap/extension-text-style';
+import TextAlign from '@tiptap/extension-text-align';
+import { SmartTableRow, SmartTableCell, SmartTableEngine } from '../lib/tiptap/smart-table';
 import TiptapLink from '@tiptap/extension-link';
 import TiptapImage from '@tiptap/extension-image';
 import Underline from '@tiptap/extension-underline';
@@ -590,9 +590,13 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
     Table.configure({
       resizable: true,
     }),
-    TableRow,
+    SmartTableRow,
     TableHeader,
-    TableCell,
+    SmartTableCell,
+    SmartTableEngine,
+    TextAlign.configure({
+      types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
+    }),
     Placeholder.configure({
       placeholder: "Type '/' for commands or start writing...",
     }),
@@ -912,32 +916,12 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
               editor={editor}
               pluginKey="textMenu"
               shouldShow={({ editor, state }) => {
-                return editor.isFocused && editor.isEditable && !state.selection.empty;
+                return editor.isFocused && editor.isEditable && !state.selection.empty && !editor.isActive('table');
               }}
               {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'bottom-start', appendTo: () => document.body } } as any)}
               className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
             >
               <TooltipProvider delay={200}>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.preventDefault()}
-                        onClick={() => editor.chain().focus().setParagraph().run()}
-                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('paragraph') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-                      >
-                        <Pilcrow className="w-4 h-4" />
-                      </button>
-                    }
-                  />
-                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-                    Text (⌘ ⌥ 0)
-                  </TooltipContent>
-                </Tooltip>
-
-                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
-
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -1010,24 +994,6 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                   </TooltipContent>
                 </Tooltip>
 
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.preventDefault()}
-                        onClick={() => editor.chain().focus().toggleBadge().run()}
-                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('badge') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-                      >
-                        <Tag className="w-4 h-4" />
-                      </button>
-                    }
-                  />
-                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-                    Badge (⌘ ⌥ B)
-                  </TooltipContent>
-                </Tooltip>
-
                 <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
 
                 <Tooltip>
@@ -1045,24 +1011,6 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                   />
                   <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
                     Code (⌘ E)
-                  </TooltipContent>
-                </Tooltip>
-
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        type="button"
-                        onPointerDown={(e) => e.preventDefault()}
-                        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                        className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${editor.isActive('codeBlock') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-                      >
-                        <Code2 className="w-4 h-4" />
-                      </button>
-                    }
-                  />
-                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-                    Code Block (⌘ ⌥ C)
                   </TooltipContent>
                 </Tooltip>
 
@@ -1129,25 +1077,173 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
                             } else {
                               if (value) editor.chain().focus().setColor(value).run();
                               else editor.chain().focus().unsetColor().run();
-                          }
-                        }}
-                        className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${isActive ? 'bg-accent/50' : ''}`}
-                      >
-                        <div
-                          className="w-4 h-4 rounded-sm border border-border/50 shrink-0 flex items-center justify-center font-bold text-white text-[10px]"
-                          style={value ? { backgroundColor: value } : { backgroundColor: 'transparent' }}
+                            }
+                          }}
+                          className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${isActive ? 'bg-accent/50' : ''}`}
                         >
-                          {!value && <span className="text-foreground">A</span>}
-                        </div>
+                          <div
+                            className="w-4 h-4 rounded-sm border border-border/50 shrink-0 flex items-center justify-center font-bold text-white text-[10px]"
+                            style={value ? { backgroundColor: value } : { backgroundColor: 'transparent' }}
+                          >
+                            {!value && <span className="text-foreground">A</span>}
+                          </div>
+                          <span className="flex-1">{name}</span>
+                          {isActive && <Check className="w-3.5 h-3.5 opacity-70" />}
+                        </DropdownMenu.Item>
+                      )
+                    })}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip>
+                    <TooltipTrigger 
+                      render={
+                        <DropdownMenu.Trigger asChild>
+                          <button 
+                            className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none"
+                          >
+                            {editor.isActive({ textAlign: 'center' }) ? (
+                              <LucideIcons.AlignCenter className="w-4 h-4" />
+                            ) : editor.isActive({ textAlign: 'right' }) ? (
+                              <LucideIcons.AlignRight className="w-4 h-4" />
+                            ) : (
+                              <LucideIcons.AlignLeft className="w-4 h-4" />
+                            )}
+                          </button>
+                        </DropdownMenu.Trigger>
+                      }
+                    />
+                    <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                      Alignment
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[130px] flex flex-col" sideOffset={5} align="start">
+                    {[
+                      { name: 'Align Left', value: 'left', icon: LucideIcons.AlignLeft },
+                      { name: 'Align Center', value: 'center', icon: LucideIcons.AlignCenter },
+                      { name: 'Align Right', value: 'right', icon: LucideIcons.AlignRight }
+                    ].map(({ name, value, icon: Icon }) => (
+                      <DropdownMenu.Item
+                        key={name}
+                        onSelect={() => editor.chain().focus().setTextAlign(value).run()}
+                        className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${editor.isActive({ textAlign: value }) ? 'bg-accent/50' : ''}`}
+                      >
+                        <Icon className="w-4 h-4" />
                         <span className="flex-1">{name}</span>
-                        {isActive && <Check className="w-3.5 h-3.5 opacity-70" />}
+                        {editor.isActive({ textAlign: value }) && <Check className="w-3.5 h-3.5 opacity-70" />}
                       </DropdownMenu.Item>
-                    );
-                  })}
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
-            </TooltipProvider>
-          </BubbleMenu>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              </TooltipProvider>
+            </BubbleMenu>
+          )}
+
+          {editor && !isReadOnly && (
+            <BubbleMenu
+              editor={editor}
+              pluginKey="tableMenu"
+              shouldShow={({ editor }) => {
+                return editor.isActive('table');
+              }}
+              {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'top', appendTo: () => document.body } } as any)}
+              className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
+            >
+              <TooltipProvider delay={200}>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                           const isHeader = editor.getAttributes('tableRow').rowType === 'header';
+                           editor.chain().focus().updateAttributes('tableRow', { rowType: isHeader ? 'data' : 'header' }).run();
+                        }}
+                        className={`h-8 px-2 flex gap-1 items-center justify-center rounded-sm transition-colors ${editor.getAttributes('tableRow').rowType === 'header' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <LucideIcons.Heading className="w-4 h-4" />
+                        <span className="text-xs font-medium">Header</span>
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Set as Header Row (Subtotal)
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                           const isFooter = editor.getAttributes('tableRow').rowType === 'footer';
+                           editor.chain().focus().updateAttributes('tableRow', { rowType: isFooter ? 'data' : 'footer' }).run();
+                        }}
+                        className={`h-8 px-2 flex gap-1 items-center justify-center rounded-sm transition-colors ${editor.getAttributes('tableRow').rowType === 'footer' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
+                      >
+                        <LucideIcons.Sigma className="w-4 h-4" />
+                        <span className="text-xs font-medium">Footer</span>
+                      </button>
+                    }
+                  />
+                  <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                    Set as Footer Row (Grand Total)
+                  </TooltipContent>
+                </Tooltip>
+
+                <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+
+                <DropdownMenu.Root modal={false}>
+                  <Tooltip>
+                    <TooltipTrigger 
+                      render={
+                        <DropdownMenu.Trigger asChild>
+                          <button 
+                            className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none"
+                          >
+                            {editor.isActive({ textAlign: 'center' }) ? (
+                              <LucideIcons.AlignCenter className="w-4 h-4" />
+                            ) : editor.isActive({ textAlign: 'right' }) ? (
+                              <LucideIcons.AlignRight className="w-4 h-4" />
+                            ) : (
+                              <LucideIcons.AlignLeft className="w-4 h-4" />
+                            )}
+                          </button>
+                        </DropdownMenu.Trigger>
+                      }
+                    />
+                    <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                      Alignment
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[130px] flex flex-col" sideOffset={5} align="start">
+                    {[
+                      { name: 'Align Left', value: 'left', icon: LucideIcons.AlignLeft },
+                      { name: 'Align Center', value: 'center', icon: LucideIcons.AlignCenter },
+                      { name: 'Align Right', value: 'right', icon: LucideIcons.AlignRight }
+                    ].map(({ name, value, icon: Icon }) => (
+                      <DropdownMenu.Item
+                        key={name}
+                        onSelect={() => editor.chain().focus().setTextAlign(value).run()}
+                        className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${editor.isActive({ textAlign: value }) ? 'bg-accent/50' : ''}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span className="flex-1">{name}</span>
+                        {editor.isActive({ textAlign: value }) && <Check className="w-3.5 h-3.5 opacity-70" />}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              </TooltipProvider>
+            </BubbleMenu>
           )}
 
           <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none tiptap-editor prose-code:before:content-none prose-code:after:content-none prose-blockquote:before:content-none prose-blockquote:after:content-none">
