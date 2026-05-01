@@ -29,6 +29,19 @@ export default function PropertiesPanel({
 }: PropertiesPanelProps) {
   const [editingEntity, setEditingEntity] = useState<Entity | null>(selectedEntity);
   const syncDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const prevColumnsCount = useRef(editingEntity?.columns?.length || 0);
+  
+  // Auto-scroll when columns are added
+  useEffect(() => {
+    const currentLength = editingEntity?.columns?.length || 0;
+    if (currentLength > prevColumnsCount.current) {
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+    }
+    prevColumnsCount.current = currentLength;
+  }, [editingEntity?.columns?.length]);
   
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -211,7 +224,7 @@ export default function PropertiesPanel({
         <Separator className="my-5" />
 
         {/* Columns Settings Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between sticky top-0 z-10 bg-popover/95 backdrop-blur-sm py-2 -mx-6 px-6">
           <div className="flex items-center gap-2">
             <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Columns ({editingEntity.columns.length})</Label>
             <Button
@@ -225,10 +238,9 @@ export default function PropertiesPanel({
             </Button>
           </div>
           <Button 
-            variant="secondary"
-            size="icon"
             onClick={addColumn}
-            className="h-8 w-8 rounded-full shadow-sm hover:shadow-md transition-all"
+            className="h-8 w-8 rounded-full shadow-sm hover:shadow-md transition-all bg-white text-black hover:bg-white/90"
+            size="icon"
           >
             <Plus className="w-4 h-4" />
           </Button>
@@ -354,6 +366,7 @@ export default function PropertiesPanel({
               </div>
             </Card>
           ))}
+          <div ref={scrollRef} />
         </div>
       </section>
 
