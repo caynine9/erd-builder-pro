@@ -48,6 +48,30 @@ function mapType(type: string, target: SQLType): string {
   return t; // Default for others
 }
 
+function singularize(str: string): string {
+  if (str.endsWith('ies')) {
+    return str.slice(0, -3) + 'y';
+  }
+  if (str.endsWith('ses')) {
+    return str.slice(0, -2);
+  }
+  if (str.endsWith('s') && !str.endsWith('ss')) {
+    return str.slice(0, -1);
+  }
+  return str;
+}
+
+function toPascalCase(str: string, shouldSingularize: boolean = false): string {
+  const parts = str.split('_');
+  if (shouldSingularize && parts.length > 0) {
+    parts[parts.length - 1] = singularize(parts[parts.length - 1]);
+  }
+  
+  return parts
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+}
+
 export function generateMySQL(entity: Entity): string {
   const tableName = entity.name.toLowerCase();
   const columns = entity.columns.map(col => {
@@ -140,7 +164,7 @@ ${columns}
 }
 
 export function generateTypeScript(entity: Entity): string {
-  const className = entity.name.charAt(0).toUpperCase() + entity.name.slice(1).toLowerCase();
+  const className = toPascalCase(entity.name, true);
   
   const properties = entity.columns.map(col => {
     const t = col.type.toLowerCase();
@@ -171,7 +195,7 @@ export function generateTypeScript(entity: Entity): string {
 }
 
 export function generatePrisma(entity: Entity): string {
-  const modelName = entity.name.charAt(0).toUpperCase() + entity.name.slice(1).toLowerCase();
+  const modelName = toPascalCase(entity.name, true);
   let enums = '';
   
   const fields = entity.columns.map(col => {
@@ -191,7 +215,7 @@ export function generatePrisma(entity: Entity): string {
       case 'timestamp': prismaType = 'DateTime'; break;
       case 'json': prismaType = 'Json'; break;
       case 'enum': 
-        prismaType = name.charAt(0).toUpperCase() + name.slice(1);
+        prismaType = toPascalCase(name, true);
         const values = col.enum_values ? col.enum_values.split(',').map(v => `  ${v.trim().toUpperCase()}`).join('\n') : '';
         enums += `\nenum ${prismaType} {\n${values}\n}\n`;
         break;
@@ -210,7 +234,7 @@ export function generatePrisma(entity: Entity): string {
 }
 
 export function generateLaravelModel(entity: Entity): string {
-  const className = entity.name.charAt(0).toUpperCase() + entity.name.slice(1).toLowerCase();
+  const className = toPascalCase(entity.name, true);
   
   const fillable = entity.columns
     .filter(col => !col.is_pk && !['created_at', 'updated_at'].includes(col.name))
@@ -232,7 +256,11 @@ export function generateLaravelModel(entity: Entity): string {
     })
     .join('\n');
 
-  return `class ${className} extends Model
+  return `namespace App\\Models;
+
+use Illuminate\\Database\\Eloquent\\Model;
+
+class ${className} extends Model
 {
     protected $fillable = [
 ${fillable}
@@ -274,5 +302,5 @@ export function generateZod(entity: Entity): string {
     return `  ${col.name}: ${zod},`;
   }).join('\n');
 
-  return `import { z } from 'zod';\n\nexport const ${name}Schema = z.object({\n${fields}\n});\n\nexport type ${entity.name.charAt(0).toUpperCase() + entity.name.slice(1).toLowerCase()} = z.infer<typeof ${name}Schema>;`;
+  return `import { z } from 'zod';\n\nexport const ${name}Schema = z.object({\n${fields}\n});\n\nexport type ${toPascalCase(entity.name, true)} = z.infer<typeof ${name}Schema>;`;
 }
