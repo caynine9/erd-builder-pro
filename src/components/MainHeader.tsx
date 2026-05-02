@@ -10,7 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Share2, Globe, CloudOff, CloudRain, Cloud, Save, Check, History } from 'lucide-react';
+import { Share2, Globe, CloudOff, CloudRain, Cloud, Save, Check } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,7 +49,7 @@ interface MainHeaderProps {
   onExportMarkdown?: () => void;
   onCopyMarkdown?: () => void;
   onImportMarkdown?: () => void;
-  onShowHistory?: () => void;
+
   isGuest?: boolean;
 }
 
@@ -79,7 +79,7 @@ export const MainHeader = React.memo(({
   onExportMarkdown,
   onCopyMarkdown,
   onImportMarkdown,
-  onShowHistory,
+
   isGuest = false,
 }: MainHeaderProps) => {
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
@@ -241,25 +241,7 @@ export const MainHeader = React.memo(({
                   </div>
                 )}
 
-                {onShowHistory && !isGuest && !isPublicView && (
-                  <TooltipProvider delay={0}>
-                    <Tooltip>
-                      <TooltipTrigger render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={onShowHistory}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <History className="w-4 h-4" />
-                        </Button>
-                      } />
-                      <TooltipContent side="bottom" className="text-[10px] font-medium">
-                        Version History
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
+
               </div>
             )}
 
