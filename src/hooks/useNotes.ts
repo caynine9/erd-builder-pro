@@ -63,12 +63,12 @@ export function useNotes(isGuest: boolean = false) {
     }
   }, [isGuest]); 
 
-  const createNote = async (title: string, projectId?: number | string | null) => {
+  const createNote = async (title: string, projectId?: number | string | null, content?: string) => {
     if (isGuest) {
       const newNote: Note = {
         id: Math.random().toString(36).substr(2, 9),
         title,
-        content: '',
+        content: content || '',
         project_id: projectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
@@ -86,7 +86,7 @@ export function useNotes(isGuest: boolean = false) {
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, project_id: projectId }),
+        body: JSON.stringify({ title, project_id: projectId, content: content || "" }),
       });
       if (res.ok) {
         const newNote = await res.json();
@@ -98,6 +98,28 @@ export function useNotes(isGuest: boolean = false) {
       console.error('Error creating note:', err);
     }
     return null;
+  };
+
+  const duplicateNote = async (id: number | string, newTitle: string) => {
+    const sourceNote = notesRef.current.find(n => String(n.id) === String(id));
+    if (!sourceNote) {
+      toast.error('Source note not found');
+      return null;
+    }
+
+    // Load full content if it's not in the list (though usually it is if it's active)
+    let content = sourceNote.content;
+    
+    // If it's the active note, we might have unsaved changes in local draft
+    const draft = await localPersistence.getDraft(DraftType.NOTES, id);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft.data);
+        if (parsed.content) content = parsed.content;
+      } catch (e) {}
+    }
+
+    return await createNote(newTitle, sourceNote.project_id, content);
   };
 
   const updateNote = async (id: number | string, title: string) => {
@@ -276,6 +298,7 @@ export function useNotes(isGuest: boolean = false) {
     notesTotal,
     isLoading,
     isItemLoading,
-    selectNote
+    selectNote,
+    duplicateNote
   };
 }

@@ -49,7 +49,7 @@ interface MainHeaderProps {
   onExportMarkdown?: () => void;
   onCopyMarkdown?: () => void;
   onImportMarkdown?: () => void;
-
+  onDuplicate?: () => void;
   isGuest?: boolean;
 }
 
@@ -79,7 +79,7 @@ export const MainHeader = React.memo(({
   onExportMarkdown,
   onCopyMarkdown,
   onImportMarkdown,
-
+  onDuplicate,
   isGuest = false,
 }: MainHeaderProps) => {
   const [isShareModalOpen, setIsShareModalOpen] = React.useState(false);
@@ -249,6 +249,7 @@ export const MainHeader = React.memo(({
               onShare={() => isOnline && setIsShareModalOpen(true)}
               onDelete={onDelete}
               onRename={onRename}
+              onDuplicate={onDuplicate}
               onExportSQL={onExportSQL}
               onExportPDF={onExportPDF}
               onExportImage={onExportImage}
