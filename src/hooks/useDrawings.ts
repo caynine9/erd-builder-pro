@@ -60,12 +60,12 @@ export function useDrawings(isGuest: boolean = false) {
     }
   }, [isGuest]);
 
-  const createDrawing = async (title: string, projectId?: number | string | null) => {
+  const createDrawing = async (title: string, projectId?: number | string | null, data?: string) => {
     if (isGuest) {
       const newDrawing: Drawing = {
         id: Math.random().toString(36).substr(2, 9),
         title,
-        data: '',
+        data: data || '',
         project_id: projectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
@@ -83,7 +83,7 @@ export function useDrawings(isGuest: boolean = false) {
       const res = await fetch('/api/drawings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, project_id: projectId }),
+        body: JSON.stringify({ title, project_id: projectId, data: data || "" }),
       });
       if (res.ok) {
         const newDrawing = await res.json();
@@ -93,6 +93,25 @@ export function useDrawings(isGuest: boolean = false) {
       }
     } catch (err) {}
     return null;
+  };
+
+  const duplicateDrawing = async (id: number | string, newTitle: string) => {
+    const sourceDrawing = drawingsRef.current.find(d => String(d.id) === String(id));
+    if (!sourceDrawing) {
+      toast.error('Source drawing not found');
+      return null;
+    }
+
+    let data = sourceDrawing.data;
+    const draft = await localPersistence.getDraft(DraftType.DRAWINGS, id);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft.data);
+        if (parsed.data) data = parsed.data;
+      } catch (e) {}
+    }
+
+    return await createDrawing(newTitle, sourceDrawing.project_id, data);
   };
 
   const updateDrawing = async (id: number | string, title: string) => {
@@ -276,6 +295,7 @@ export function useDrawings(isGuest: boolean = false) {
     drawingsTotal,
     isLoading,
     isItemLoading,
-    selectDrawing
+    selectDrawing,
+    duplicateDrawing
   };
 }

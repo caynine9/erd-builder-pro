@@ -134,6 +134,8 @@ function AppContent() {
   const [isMoveToTrashAlertOpen, setIsMoveToTrashAlertOpen] = useState(false);
   const [isImportNoteModalOpen, setIsImportNoteModalOpen] = useState(false);
   const [isExportNoteModalOpen, setIsExportNoteModalOpen] = useState(false);
+  const [isDuplicateDialogOpen, setIsDuplicateDialogOpen] = useState(false);
+  const [duplicateName, setDuplicateName] = useState("");
   
   // Safety Gate & Persistence State
   const [isLocalSaving, setIsLocalSaving] = useState(false);
@@ -161,7 +163,6 @@ function AppContent() {
   const { handleExportSQL } = useSQLGenerator();
   const { handleExportImage, handleExportPDF } = useImageExporter();
 
-
   // ERD Session Hook
   const { 
     nodes, setNodes, onNodesChange,
@@ -173,23 +174,19 @@ function AppContent() {
     undo, redo, canUndo, canRedo, takeSnapshot, isItemLoading: isERDItemLoading, saveCounter
   } = useERDSession(false, isGuest, isAuthenticated, setView);
 
-
   // Public Document Hook
   const {
     isPublicView, setIsPublicView, publicData, isPublicLoading, forbiddenDoc, fetchPublicDocument
   } = usePublicDocument(setView, setNodes, setEdges);
 
   // Domain Hooks
-  const { 
-    diagrams, setDiagrams, activeDiagramId, setActiveDiagramId,
+  const { diagrams, setDiagrams, activeDiagramId, setActiveDiagramId,
     fetchDiagrams, createDiagram, updateDiagram, deleteDiagram, restoreDiagram, deleteDiagramPermanent, moveDiagramToProject, saveDiagram,
-    hasMoreDiagrams, isLoading: isDiagramsLoading
-  } = useDiagrams(isAuthenticated, view, isGuest);
-
+    hasMoreDiagrams, isLoading: isDiagramsLoading } = useDiagrams(isAuthenticated, view, isGuest);
 
   const { 
     notes, setNotesList, activeNoteId, setActiveNoteId, fetchNotes, createNote, updateNote, deleteNote, moveNoteToProject, saveNote, restoreNote, deleteNotePermanent,
-    hasMoreNotes, isLoading: isNotesLoading, isItemLoading: isNoteItemLoading, selectNote
+    hasMoreNotes, isLoading: isNotesLoading, isItemLoading: isNoteItemLoading, selectNote, duplicateNote
   } = useNotes(isGuest);
   
   const { 
@@ -199,7 +196,7 @@ function AppContent() {
   
   const { 
     drawings, setDrawings, activeDrawingId, setActiveDrawingId, fetchDrawings, createDrawing, updateDrawing, deleteDrawing, moveDrawingToProject, saveDrawing, restoreDrawing, deleteDrawingPermanent,
-    hasMoreDrawings, isLoading: isDrawingsLoading, isItemLoading: isDrawingItemLoading, selectDrawing
+    hasMoreDrawings, isLoading: isDrawingsLoading, isItemLoading: isDrawingItemLoading, selectDrawing, duplicateDrawing
   } = useDrawings(isGuest);
 
   const {
@@ -859,7 +856,7 @@ function AppContent() {
       else if (type === 'erd') await deleteDiagramPermanent(id);
       else if (type === 'notes') await deleteNotePermanent(id);
       else if (type === 'drawings') await deleteDrawingPermanent(id);
-      else if (type === 'project' as any) await deleteFlowchartPermanent(id);
+      else if (type === 'flowchart') await deleteFlowchartPermanent(id);
       setIsPermanentDeleteConfirmOpen(false);
       setItemToDelete(null);
       fetchTrash();
@@ -873,6 +870,42 @@ function AppContent() {
   
   const featureLabel = isPublicView ? `Public Shared ${view}` : (view === 'erd' ? 'Diagrams' : view === 'notes' ? 'Notes' : view === 'drawings' ? 'Drawings' : view === 'flowchart' ? 'Flowcharts' : view === 'changelog' ? 'Changelog' : view === 'backups' ? 'Backups' : 'Trash Bin');
 
+
+
+  const handleDuplicate = () => {
+    if (!activeDocument) return;
+    setDuplicateName(`${activeDocument.title || activeDocument.name} (Copy)`);
+    setIsDuplicateDialogOpen(true);
+  };
+
+  const executeDuplicate = async () => {
+    if (!activeDocument || !duplicateName.trim()) return;
+    
+    setIsRefreshing(true);
+    try {
+      if (view === 'notes') {
+        const newNote = await duplicateNote(activeDocument.id, duplicateName);
+        if (newNote) {
+          await handleNoteSelect(newNote.id);
+          toast.success("Note duplicated successfully");
+        }
+      } else if (view === 'drawings') {
+        const newDrawing = await duplicateDrawing(activeDocument.id, duplicateName);
+        if (newDrawing) {
+          await handleDrawingSelect(newDrawing.id);
+          toast.success("Drawing duplicated successfully");
+        }
+      } else {
+        toast.info("Duplication for this document type is disabled.");
+      }
+    } catch (err) {
+      console.error("Duplicate error:", err);
+      toast.error("Failed to duplicate document.");
+    } finally {
+      setIsRefreshing(false);
+      setIsDuplicateDialogOpen(false);
+    }
+  };
 
   const activeFileName = isPublicView ? (publicData?.name || publicData?.title || 'Shared Document') : (view === 'erd' ? activeDiagram?.name : view === 'notes' ? activeNote?.title : view === 'drawings' ? activeDrawing?.title : view === 'flowchart' ? activeFlowchart?.title : null);
   const activeProjectName = isPublicView ? publicData?.projects?.name : (view === 'erd' ? activeDiagram?.projects?.name : view === 'notes' ? activeNote?.projects?.name : view === 'drawings' ? activeDrawing?.projects?.name : view === 'flowchart' ? activeFlowchart?.projects?.name : null);
@@ -1043,7 +1076,7 @@ function AppContent() {
           onExportMarkdown={handleExportMarkdown}
           onCopyMarkdown={handleCopyMarkdown}
           onImportMarkdown={handleImportMarkdown}
-
+          onDuplicate={handleDuplicate}
           isGuest={isGuest}
         />
 
@@ -1383,6 +1416,55 @@ function AppContent() {
         </AlertDialog>
 
 
+        {/* Duplicate Document Dialog */}
+        <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Duplicate Document</DialogTitle>
+              <DialogDescription>
+                Create a copy of this {view === 'erd' ? 'diagram' : view === 'notes' ? 'note' : view === 'drawings' ? 'drawing' : 'flowchart'}.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogBody>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="duplicate-input" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    New Name
+                  </label>
+                  <input
+                    id="duplicate-input"
+                    type="text"
+                    className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
+                    value={duplicateName}
+                    onChange={(e) => setDuplicateName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && duplicateName.trim()) {
+                        executeDuplicate();
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+            </DialogBody>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setIsDuplicateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={executeDuplicate}
+                disabled={!duplicateName.trim() || isRefreshing}
+              >
+                {isRefreshing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Duplicating...
+                  </>
+                ) : "Duplicate"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   );

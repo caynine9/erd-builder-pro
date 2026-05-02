@@ -120,15 +120,6 @@ export const NavActionsMenu = ({
             <span>Rename Document</span>
           </DropdownMenuItem>
 
-          <DropdownMenuItem 
-            disabled={!isOnline || isPublicView} 
-            onClick={onDuplicate}
-            className="gap-2 opacity-50 cursor-not-allowed cursor-pointer"
-          >
-            <Copy className="h-4 w-4 text-muted-foreground" />
-            <span>Duplicate (Coming Soon)</span>
-          </DropdownMenuItem>
-
           <DropdownMenuSeparator />
 
           <DropdownMenuItem 
@@ -139,6 +130,20 @@ export const NavActionsMenu = ({
             <Trash2 className="h-4 w-4" />
             <span>Move to Trash</span>
           </DropdownMenuItem>
+
+          {(documentType === 'notes' || documentType === 'drawings') && !isPublicView && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                disabled={!isOnline} 
+                onClick={onDuplicate}
+                className="gap-2 cursor-pointer"
+              >
+                <Copy className="h-4 w-4 text-muted-foreground" />
+                <span>Duplicate</span>
+              </DropdownMenuItem>
+            </>
+          )}
 
           {documentType === 'erd' && !isPublicView && (
             <>
