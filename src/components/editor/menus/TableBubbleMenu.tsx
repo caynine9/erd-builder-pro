@@ -2,15 +2,89 @@ import React from 'react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Check } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import { 
+  Check, 
+  ChevronRight, 
+  Columns, 
+  Layout, 
+  Menu, 
+  ArrowUp, 
+  Heading, 
+  Sigma, 
+  Trash2, 
+  ArrowLeft, 
+  ArrowRight, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight 
+} from 'lucide-react';
 import { Editor } from '@tiptap/react';
+import { TableMap } from '@tiptap/pm/tables';
 
 interface TableBubbleMenuProps {
   editor: Editor;
 }
 
 export function TableBubbleMenu({ editor }: TableBubbleMenuProps) {
+  const moveColumn = (direction: 'left' | 'right') => {
+    const { state, view } = editor;
+    const { selection } = state;
+    const { from } = selection;
+    const $pos = state.doc.resolve(from);
+    
+    let tablePos = -1;
+    let tableNode = null;
+    let cellPos = -1;
+    
+    for (let d = $pos.depth; d > 0; d--) {
+      const node = $pos.node(d);
+      if (node.type.name === 'table') {
+        tablePos = $pos.before(d);
+        tableNode = node;
+        break;
+      }
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        cellPos = $pos.before(d);
+      }
+    }
+    
+    if (tablePos === -1 || cellPos === -1 || !tableNode) return;
+    
+    const map = TableMap.get(tableNode);
+    const cellIdx = cellPos - tablePos - 1;
+    const rect = map.findCell(cellIdx);
+    const colIdx = rect.left;
+    const targetColIdx = direction === 'left' ? colIdx - 1 : colIdx + 1;
+    
+    if (targetColIdx < 0 || targetColIdx >= map.width) return;
+
+    const tr = state.tr;
+    const colPositions: number[] = [];
+    const targetPositions: number[] = [];
+    
+    for (let i = 0; i < map.height; i++) {
+      colPositions.push(tablePos + 1 + map.map[i * map.width + colIdx]);
+      targetPositions.push(tablePos + 1 + map.map[i * map.width + targetColIdx]);
+    }
+    
+    // Swap content of cells to move column
+    colPositions.forEach((pos, i) => {
+      const targetPos = targetPositions[i];
+      const node = tr.doc.nodeAt(tr.mapping.map(pos));
+      const targetNode = tr.doc.nodeAt(tr.mapping.map(targetPos));
+      
+      if (node && targetNode && pos !== targetPos) {
+        const nodeContent = node.content;
+        const targetNodeContent = targetNode.content;
+        
+        tr.replaceWith(tr.mapping.map(pos) + 1, tr.mapping.map(pos) + node.nodeSize - 1, targetNodeContent);
+        tr.replaceWith(tr.mapping.map(targetPos) + 1, tr.mapping.map(targetPos) + targetNode.nodeSize - 1, nodeContent);
+      }
+    });
+    
+    view.dispatch(tr);
+  };
+
   return (
     <BubbleMenu
       editor={editor}
@@ -20,119 +94,159 @@ export function TableBubbleMenu({ editor }: TableBubbleMenuProps) {
         return editor.isFocused && editor.isActive('table');
       }}
       {...({ tippyOptions: { duration: 100, zIndex: 9999, placement: 'top', appendTo: () => document.body } } as any)}
-      className="flex gap-1 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
+      className="flex gap-0.5 p-1 bg-popover border border-border shadow-lg rounded-md overflow-hidden"
     >
       <TooltipProvider delay={200}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => {
-                   const isHeader = editor.getAttributes('tableRow').rowType === 'header';
-                   editor.chain().focus().updateAttributes('tableRow', { rowType: isHeader ? 'data' : 'header' }).run();
-                }}
-                className={`h-8 px-2 flex gap-1 items-center justify-center rounded-sm transition-colors ${editor.getAttributes('tableRow').rowType === 'header' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <LucideIcons.Heading className="w-4 h-4" />
-                <span className="text-xs font-medium">Header</span>
-              </button>
-            }
-          />
-          <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-            Set as Header Row (Subtotal)
-          </TooltipContent>
-        </Tooltip>
+        {/* Alignment Controls */}
+        <div className="flex items-center gap-0.5 px-0.5">
+          {[
+            { icon: AlignLeft, value: 'left', label: 'Align Left' },
+            { icon: AlignCenter, value: 'center', label: 'Align Center' },
+            { icon: AlignRight, value: 'right', label: 'Align Right' },
+          ].map((item) => (
+            <Tooltip key={item.value}>
+              <TooltipTrigger 
+                render={
+                  <button
+                    type="button"
+                    onClick={() => editor.chain().focus().setTextAlign(item.value).run()}
+                    className={`h-8 w-8 flex items-center justify-center rounded-sm transition-colors ${
+                      editor.isActive({ textAlign: item.value }) 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'hover:bg-accent text-popover-foreground'
+                    }`}
+                  >
+                    <item.icon className="w-4 h-4" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
+                {item.label}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
 
-        <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
+        <div className="w-[1px] h-4 bg-border mx-1 self-center" />
 
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onPointerDown={(e) => e.preventDefault()}
-                onClick={() => {
-                   const isFooter = editor.getAttributes('tableRow').rowType === 'footer';
-                   editor.chain().focus().updateAttributes('tableRow', { rowType: isFooter ? 'data' : 'footer' }).run();
-                }}
-                className={`h-8 px-2 flex gap-1 items-center justify-center rounded-sm transition-colors ${editor.getAttributes('tableRow').rowType === 'footer' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-popover-foreground'}`}
-              >
-                <LucideIcons.Sigma className="w-4 h-4" />
-                <span className="text-xs font-medium">Footer</span>
-              </button>
-            }
-          />
-          <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-            Set as Footer Row (Grand Total)
-          </TooltipContent>
-        </Tooltip>
-
-        <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
-
+        {/* Main Table Menu */}
         <DropdownMenu.Root modal={false}>
           <Tooltip>
             <TooltipTrigger 
               render={
                 <DropdownMenu.Trigger asChild>
-                  <button 
-                    className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none"
-                  >
-                    {editor.isActive({ textAlign: 'center' }) ? (
-                      <LucideIcons.AlignCenter className="w-4 h-4" />
-                    ) : editor.isActive({ textAlign: 'right' }) ? (
-                      <LucideIcons.AlignRight className="w-4 h-4" />
-                    ) : (
-                      <LucideIcons.AlignLeft className="w-4 h-4" />
-                    )}
+                  <button className="h-8 px-2 flex items-center gap-1.5 rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none">
+                    <Menu className="w-4 h-4" />
+                    <span className="text-xs font-medium">Table Actions</span>
                   </button>
                 </DropdownMenu.Trigger>
               }
             />
             <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-              Alignment (⌘ ⇧ L/C/R)
+              Table Settings & Operations
             </TooltipContent>
           </Tooltip>
-          <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[130px] flex flex-col" sideOffset={5} align="start">
-            {[
-              { name: 'Align Left', value: 'left', icon: LucideIcons.AlignLeft },
-              { name: 'Align Center', value: 'center', icon: LucideIcons.AlignCenter },
-              { name: 'Align Right', value: 'right', icon: LucideIcons.AlignRight }
-            ].map(({ name, value, icon: Icon }) => (
-              <DropdownMenu.Item
-                key={name}
-                onSelect={() => editor.chain().focus().setTextAlign(value).run()}
-                className={`flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none ${editor.isActive({ textAlign: value }) ? 'bg-accent/50' : ''}`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="flex-1">{name}</span>
-                {editor.isActive({ textAlign: value }) && <Check className="w-3.5 h-3.5 opacity-70" />}
-              </DropdownMenu.Item>
-            ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
 
-        <div className="w-[1px] h-4 bg-border mx-0.5 self-center" />
-
-        <DropdownMenu.Root modal={false}>
-          <Tooltip>
-            <TooltipTrigger 
-              render={
-                <DropdownMenu.Trigger asChild>
-                  <button 
-                    className="h-8 w-8 flex items-center justify-center rounded-sm transition-colors hover:bg-accent text-popover-foreground outline-none"
+          <DropdownMenu.Content 
+            className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[180px] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100" 
+            sideOffset={5} 
+            align="start"
+          >
+            {/* Rows Submenu */}
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-default hover:bg-accent focus:bg-accent outline-none">
+                <Layout className="w-4 h-4" />
+                <span className="flex-1">Rows</span>
+                <ChevronRight className="w-4 h-4 opacity-50" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10001] min-w-[160px] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100" sideOffset={8}>
+                  <DropdownMenu.Item
+                    onSelect={() => editor.chain().focus().addRowAfter().run()}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
                   >
-                    <LucideIcons.Menu className="w-4 h-4" />
-                  </button>
-                </DropdownMenu.Trigger>
-              }
-            />
-            <TooltipContent side="top" className="text-[10px] py-1 px-2 font-medium">
-              Table Options
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[160px] flex flex-col" sideOffset={5} align="end">
+                    <ArrowUp className="w-4 h-4 rotate-180" />
+                    <span>Add Row Below</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => editor.chain().focus().deleteRow().run()}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Row</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="h-[1px] bg-border my-1" />
+                  <DropdownMenu.Item
+                    onSelect={() => {
+                      const isHeader = editor.getAttributes('tableRow').rowType === 'header';
+                      editor.chain().focus().updateAttributes('tableRow', { rowType: isHeader ? 'data' : 'header' }).run();
+                    }}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <Heading className="w-4 h-4" />
+                    <span className="flex-1">Header Row</span>
+                    {editor.getAttributes('tableRow').rowType === 'header' && <Check className="w-3.5 h-3.5 opacity-70" />}
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => {
+                      const isFooter = editor.getAttributes('tableRow').rowType === 'footer';
+                      editor.chain().focus().updateAttributes('tableRow', { rowType: isFooter ? 'data' : 'footer' }).run();
+                    }}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <Sigma className="w-4 h-4" />
+                    <span className="flex-1">Footer Row</span>
+                    {editor.getAttributes('tableRow').rowType === 'footer' && <Check className="w-3.5 h-3.5 opacity-70" />}
+                  </DropdownMenu.Item>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+
+            {/* Columns Submenu */}
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-default hover:bg-accent focus:bg-accent outline-none">
+                <Columns className="w-4 h-4" />
+                <span className="flex-1">Columns</span>
+                <ChevronRight className="w-4 h-4 opacity-50" />
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10001] min-w-[160px] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100" sideOffset={8}>
+                  <DropdownMenu.Item
+                    onSelect={() => editor.chain().focus().addColumnAfter().run()}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <Columns className="w-4 h-4" />
+                    <span>Add Column After</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => editor.chain().focus().deleteColumn().run()}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Column</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator className="h-[1px] bg-border my-1" />
+                  <DropdownMenu.Item
+                    onSelect={() => moveColumn('left')}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Move Left</span>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    onSelect={() => moveColumn('right')}
+                    className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    <span>Move Right</span>
+                  </DropdownMenu.Item>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+
+            <DropdownMenu.Separator className="h-[1px] bg-border my-1" />
+
+            {/* General Actions */}
             <DropdownMenu.Item
               onSelect={() => {
                 const { state } = editor.view;
@@ -144,45 +258,22 @@ export function TableBubbleMenu({ editor }: TableBubbleMenuProps) {
                     return false;
                   }
                 });
-                
                 if (tablePos !== -1) {
                   editor.chain().focus().insertContentAt(tablePos, { type: 'paragraph' }).run();
                 }
               }}
               className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
             >
-              <LucideIcons.ArrowUp className="w-4 h-4" />
-              <span className="flex-1">Add Paragraph Above</span>
+              <ArrowUp className="w-4 h-4" />
+              <span className="flex-1">Insert Line Above</span>
             </DropdownMenu.Item>
-            <div className="h-[1px] bg-border my-1" />
+            
             <DropdownMenu.Item
-              onSelect={() => editor.chain().focus().addColumnAfter().run()}
-              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
-            >
-              <LucideIcons.Columns className="w-4 h-4" />
-              <span className="flex-1">Add Column</span>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              onSelect={() => editor.chain().focus().deleteColumn().run()}
+              onSelect={() => editor.chain().focus().deleteTable().run()}
               className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
             >
-              <LucideIcons.Columns className="w-4 h-4" />
-              <span className="flex-1">Delete Column</span>
-            </DropdownMenu.Item>
-            <div className="h-[1px] bg-border my-1" />
-            <DropdownMenu.Item
-              onSelect={() => editor.chain().focus().addRowAfter().run()}
-              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
-            >
-              <LucideIcons.Layout className="w-4 h-4" />
-              <span className="flex-1">Add Row</span>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              onSelect={() => editor.chain().focus().deleteRow().run()}
-              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none text-destructive hover:text-destructive focus:text-destructive"
-            >
-              <LucideIcons.Layout className="w-4 h-4" />
-              <span className="flex-1">Delete Row</span>
+              <Trash2 className="w-4 h-4" />
+              <span className="flex-1">Delete Table</span>
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
