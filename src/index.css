@@ -70,20 +70,20 @@
   @apply !bg-transparent !text-muted-foreground/30 !text-[10px];
 }
 
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+  }
 }
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
-}
-
-
 
 /* Inline Code Badge Styling */
 code:not(pre code) {
@@ -508,9 +508,10 @@ ul[data-type="taskList"] li[data-checked="true"] > div > p {
 .tiptap-editor-content table {
   border-collapse: separate !important;
   border-spacing: 0 !important;
-  table-layout: fixed !important;
-  width: 100% !important;
-  margin: 1.5rem 0 !important;
+  min-width: 100% !important;
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0.5rem 0 0rem 0 !important;
   overflow: hidden !important;
   border: 1px solid var(--border) !important;
   border-radius: 0.75rem !important;
@@ -604,7 +605,21 @@ ul[data-type="taskList"] li[data-checked="true"] > div > p {
 
 .tiptap-editor .tableWrapper {
   padding: 1rem 0 !important;
+  margin-bottom: 2rem !important;
   overflow-x: auto !important;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tiptap-editor .tableWrapper::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
 }
 
 .scrollbar-hide::-webkit-scrollbar {
@@ -613,4 +628,32 @@ ul[data-type="taskList"] li[data-checked="true"] > div > p {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Gapcursor Styles */
+.ProseMirror .ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.ProseMirror .ProseMirror-gapcursor:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 100%;
+  max-width: 100%;
+  border-top: 2px solid var(--primary);
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes ProseMirror-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
 }

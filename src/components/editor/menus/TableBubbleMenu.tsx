@@ -134,6 +134,28 @@ export function TableBubbleMenu({ editor }: TableBubbleMenuProps) {
           </Tooltip>
           <DropdownMenu.Content className="bg-popover border border-border p-1.5 rounded-lg shadow-lg z-[10000] min-w-[160px] flex flex-col" sideOffset={5} align="end">
             <DropdownMenu.Item
+              onSelect={() => {
+                const { state } = editor.view;
+                const { selection } = state;
+                let tablePos = -1;
+                state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
+                  if (node.type.name === 'table') {
+                    tablePos = pos;
+                    return false;
+                  }
+                });
+                
+                if (tablePos !== -1) {
+                  editor.chain().focus().insertContentAt(tablePos, { type: 'paragraph' }).run();
+                }
+              }}
+              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
+            >
+              <LucideIcons.ArrowUp className="w-4 h-4" />
+              <span className="flex-1">Add Paragraph Above</span>
+            </DropdownMenu.Item>
+            <div className="h-[1px] bg-border my-1" />
+            <DropdownMenu.Item
               onSelect={() => editor.chain().focus().addColumnAfter().run()}
               className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-accent focus:bg-accent outline-none"
             >
