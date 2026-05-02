@@ -163,22 +163,22 @@ export function NavProjects({
     }
   }
 
-  const handleUpdateFile = () => {
+  const handleUpdateFile = async () => {
     if (editingFile && editingFile.name.trim()) {
       const projectId = selectedProjectId === "none" ? null : selectedProjectId
       
       if (editingFile.type === 'erd') {
-        onDiagramUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) onMoveDiagramToProject(editingFile.id, projectId)
+        await onDiagramUpdate(editingFile.id, editingFile.name.trim())
+        if (projectId !== editingFile.projectId) await onMoveDiagramToProject(editingFile.id, projectId)
       } else if (editingFile.type === 'notes') {
-        onNoteUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) onMoveNoteToProject(editingFile.id, projectId)
+        await onNoteUpdate(editingFile.id, editingFile.name.trim())
+        if (projectId !== editingFile.projectId) await onMoveNoteToProject(editingFile.id, projectId)
       } else if (editingFile.type === 'drawings') {
-        onDrawingUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) onMoveDrawingToProject(editingFile.id, projectId)
+        await onDrawingUpdate(editingFile.id, editingFile.name.trim())
+        if (projectId !== editingFile.projectId) await onMoveDrawingToProject(editingFile.id, projectId)
       } else if (editingFile.type === 'flowchart') {
-        onFlowchartUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) onMoveFlowchartToProject(editingFile.id, projectId)
+        await onFlowchartUpdate(editingFile.id, editingFile.name.trim())
+        if (projectId !== editingFile.projectId) await onMoveFlowchartToProject(editingFile.id, projectId)
       }
       
       setIsEditFileDialogOpen(false)
