@@ -58,6 +58,20 @@
   @apply !stroke-white/20 !stroke-[10];
 }
 
+@keyframes edge_dash_draw {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.edge-animated-active .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: edge_dash_draw 0.5s linear infinite !important;
+}
+
 .react-flow__controls {
   @apply !bg-card !border-border !shadow-none !rounded-lg overflow-hidden;
 }

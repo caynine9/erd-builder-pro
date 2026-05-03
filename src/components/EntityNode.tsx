@@ -91,7 +91,7 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
         <div 
           className="px-3 py-2 flex items-center justify-between border-b-2 cursor-pointer group/header"
           style={{ backgroundColor: headerBg, borderColor: borderColor }}
-          onClick={handleEdit}
+          onDoubleClick={handleEdit}
         >
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 transition-transform group-hover/header:rotate-12" style={{ color: borderColor }} />
