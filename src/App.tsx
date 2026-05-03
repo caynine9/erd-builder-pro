@@ -110,6 +110,7 @@ function AppContent() {
   const [itemToDelete, setItemToDelete] = useState<{ id: number | string, type: 'erd' | 'notes' | 'drawings' | 'project' } | null>(null);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [renameProjectId, setRenameProjectId] = useState<string>("none");
   const [isMoveToTrashAlertOpen, setIsMoveToTrashAlertOpen] = useState(false);
   const [isImportNoteModalOpen, setIsImportNoteModalOpen] = useState(false);
   const [isExportNoteModalOpen, setIsExportNoteModalOpen] = useState(false);
@@ -298,10 +299,10 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Optimized Lazy Loading: Only fetch data for the active view
+  // Optimized Lazy Loading: Sidebar needs global data for tree view
   useEffect(() => {
     if (isAuthenticated && !isPublicView) {
-      const pid = activeProjectId === null ? 'all' : activeProjectId;
+      const pid = 'all'; // Always fetch all for sidebar tree view stability
       
       // We fetch more items (50) for the sidebar to ensure Shared/Private grouping is robust
       if (view === 'erd') fetchDiagrams(false, pid, debouncedSearchQuery, null, 50);
@@ -310,7 +311,7 @@ function AppContent() {
       else if (view === 'flowchart') fetchFlowcharts(false, pid, debouncedSearchQuery, null, 50);
       else if (view === 'trash') fetchTrash();
     }
-  }, [isAuthenticated, activeProjectId, debouncedSearchQuery, fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts, fetchTrash, isPublicView, view]);
+  }, [isAuthenticated, debouncedSearchQuery, fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts, fetchTrash, isPublicView, view]);
 
   // Cross-Tab Synchronization via Broadcast Channel
   const { broadcastMessage } = useBroadcastChannel(useCallback(async (message) => {
@@ -379,7 +380,7 @@ function AppContent() {
       lastFocusFetchRef.current = now;
 
       try {
-        const pid = activeProjectId === null ? 'all' : activeProjectId;
+        const pid = 'all'; // Always fetch all to keep sidebar and current document stable
         
         // Refresh the list and the active item SILENTLY (no skeletons)
         if (view === 'erd') {
@@ -452,7 +453,7 @@ function AppContent() {
     return () => window.removeEventListener('focus', handleFocus);
   }, [
     isOnline, isAuthenticated, isPublicView, isLocalSaving, isRefreshing, isSyncing,
-    view, activeProjectId, debouncedSearchQuery,
+    view, debouncedSearchQuery,
     activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId,
     fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts,
     selectDiagram, selectNote, selectDrawing, selectFlowchart,
@@ -956,6 +957,7 @@ function AppContent() {
           onRename={() => {
             if (!activeDocument) return;
             setNewName(activeDocument.title || activeDocument.name || "");
+            setRenameProjectId(activeDocument.project_id?.toString() || activeDocument.projectId?.toString() || "none");
             setIsRenameDialogOpen(true);
           }}
           onExportSQL={(dialect) => {
@@ -1111,10 +1113,17 @@ function AppContent() {
             activeDocument={activeDocument}
             newName={newName}
             setNewName={setNewName}
+            projects={projects}
+            selectedProjectId={renameProjectId}
+            setSelectedProjectId={setRenameProjectId}
             updateDiagram={updateDiagram}
             updateNote={updateNote}
             updateDrawing={updateDrawing}
             updateFlowchart={updateFlowchart}
+            onMoveDiagramToProject={moveDiagramToProject}
+            onMoveNoteToProject={moveNoteToProject}
+            onMoveDrawingToProject={moveDrawingToProject}
+            onMoveFlowchartToProject={moveFlowchartToProject}
           />
         )}
 

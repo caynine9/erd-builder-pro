@@ -35,7 +35,7 @@ export function useDrawings(isGuest: boolean = false) {
     if (!options?.silent) setIsLoading(true);
     try {
       const offset = isLoadMore ? drawingsRef.current.length : 0;
-      const projIdParam = (projectId === null || projectId === 'null') ? 'null' : projectId;
+      const projIdParam = (projectId === null || projectId === 'null' || projectId === 'none') ? 'null' : projectId;
       const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const publicParam = isPublic !== null ? `&is_public=${isPublic}` : '';
       const res = await fetch(`/api/drawings?limit=${limit}&offset=${offset}&project_id=${projIdParam}${qParam}${publicParam}`);
@@ -114,7 +114,7 @@ export function useDrawings(isGuest: boolean = false) {
     return await createDrawing(newTitle, sourceDrawing.project_id, data);
   };
 
-  const updateDrawing = async (id: number | string, title: string) => {
+  const updateDrawing = async (id: number | string, title: string, options?: { silent?: boolean }) => {
     if (isGuest) {
       const drawing = await localPersistence.getResource(id);
       if (drawing) {
@@ -122,7 +122,7 @@ export function useDrawings(isGuest: boolean = false) {
         drawing.updated_at = new Date().toISOString();
         await localPersistence.saveResource(drawing);
         setDrawings(prev => prev.map(d => d.id === id ? { ...d, title } : d));
-        toast.success('Drawing renamed locally');
+        if (!options?.silent) toast.success('Drawing renamed locally');
       }
       return;
     }
@@ -135,7 +135,7 @@ export function useDrawings(isGuest: boolean = false) {
       });
       if (res.ok) {
         setDrawings(prev => prev.map(d => d.id === id ? { ...d, title } : d));
-        toast.success('Drawing renamed successfully');
+        if (!options?.silent) toast.success('Drawing renamed successfully');
       }
     } catch (err) {}
   };
@@ -164,14 +164,14 @@ export function useDrawings(isGuest: boolean = false) {
     } catch (err) {}
   };
 
-  const moveDrawingToProject = async (drawingId: number | string, projectId: number | string | null) => {
+  const moveDrawingToProject = async (drawingId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => {
     if (isGuest) {
       const drawing = await localPersistence.getResource(drawingId);
       if (drawing) {
         drawing.project_id = projectId;
         await localPersistence.saveResource(drawing);
         setDrawings(prev => prev.map(d => d.id === drawingId ? { ...d, project_id: projectId } : d));
-        toast.success('Drawing moved to project locally');
+        if (!options?.silent) toast.success('Drawing moved to project locally');
       }
       return true;
     }
@@ -184,7 +184,7 @@ export function useDrawings(isGuest: boolean = false) {
       });
       if (res.ok) {
         setDrawings(prev => prev.map(d => d.id === drawingId ? { ...d, project_id: projectId } : d));
-        toast.success('Drawing moved to project');
+        if (!options?.silent) toast.success('Drawing moved to project');
         return true;
       }
     } catch (err) {}

@@ -35,7 +35,7 @@ export function useFlowcharts(isGuest: boolean = false) {
     if (!options?.silent) setIsLoading(true);
     try {
       const offset = isLoadMore ? flowchartsRef.current.length : 0;
-      const projIdParam = (projectId === null || projectId === 'null') ? 'null' : projectId;
+      const projIdParam = (projectId === null || projectId === 'null' || projectId === 'none') ? 'null' : projectId;
       const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const publicParam = isPublic !== null ? `&is_public=${isPublic}` : '';
       const res = await fetch(`/api/flowcharts?limit=${limit}&offset=${offset}&project_id=${projIdParam}${qParam}${publicParam}`);
@@ -95,7 +95,7 @@ export function useFlowcharts(isGuest: boolean = false) {
     return null;
   };
 
-  const updateFlowchart = async (id: number | string, title: string) => {
+  const updateFlowchart = async (id: number | string, title: string, options?: { silent?: boolean }) => {
     if (isGuest) {
       const flowchart = await localPersistence.getResource(id);
       if (flowchart) {
@@ -103,7 +103,7 @@ export function useFlowcharts(isGuest: boolean = false) {
         flowchart.updated_at = new Date().toISOString();
         await localPersistence.saveResource(flowchart);
         setFlowcharts(prev => prev.map(f => f.id === id ? { ...f, title } : f));
-        toast.success('Flowchart renamed locally');
+        if (!options?.silent) toast.success('Flowchart renamed locally');
       }
       return;
     }
@@ -116,7 +116,7 @@ export function useFlowcharts(isGuest: boolean = false) {
       });
       if (res.ok) {
         setFlowcharts(prev => prev.map(f => f.id === id ? { ...f, title } : f));
-        toast.success('Flowchart renamed successfully');
+        if (!options?.silent) toast.success('Flowchart renamed successfully');
       }
     } catch (err) {}
   };
@@ -145,14 +145,14 @@ export function useFlowcharts(isGuest: boolean = false) {
     } catch (err) {}
   };
 
-  const moveFlowchartToProject = async (flowchartId: number | string, projectId: number | string | null) => {
+  const moveFlowchartToProject = async (flowchartId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => {
     if (isGuest) {
       const flowchart = await localPersistence.getResource(flowchartId);
       if (flowchart) {
         flowchart.project_id = projectId;
         await localPersistence.saveResource(flowchart);
         setFlowcharts(prev => prev.map(f => f.id === flowchartId ? { ...f, project_id: projectId } : f));
-        toast.success('Flowchart moved to project locally');
+        if (!options?.silent) toast.success('Flowchart moved to project locally');
       }
       return true;
     }
@@ -165,7 +165,7 @@ export function useFlowcharts(isGuest: boolean = false) {
       });
       if (res.ok) {
         setFlowcharts(prev => prev.map(f => f.id === flowchartId ? { ...f, project_id: projectId } : f));
-        toast.success('Flowchart moved to project');
+        if (!options?.silent) toast.success('Flowchart moved to project');
         return true;
       }
     } catch (err) {}

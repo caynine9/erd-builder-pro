@@ -1,11 +1,12 @@
 import * as React from "react"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Diagram, Project, Note, Drawing, Flowchart } from "../types"
+import { Database, StickyNote, PenTool, Network } from "lucide-react"
+import { toast } from "sonner"
 
 // Refactored Components
 import { SidebarModals } from "./sidebar/modals/SidebarModals"
 import { ProjectGroup } from "./sidebar/sections/ProjectGroup"
-import { FileGroup } from "./sidebar/sections/FileGroup"
 
 export function NavProjects({
   projects,
@@ -91,14 +92,14 @@ export function NavProjects({
   onNoteDelete: (id: number | string) => void
   onDrawingDelete: (id: number | string) => void
   onFlowchartDelete: (id: number | string) => void
-  onDiagramUpdate: (id: number | string, name: string) => void
-  onNoteUpdate: (id: number | string, title: string) => void
-  onDrawingUpdate: (id: number | string, title: string) => void
-  onFlowchartUpdate: (id: number | string, title: string) => void
-  onMoveDiagramToProject: (diagramId: number | string, projectId: number | string | null) => void
-  onMoveNoteToProject: (noteId: number | string, projectId: number | string | null) => void
-  onMoveDrawingToProject: (drawingId: number | string, projectId: number | string | null) => void
-  onMoveFlowchartToProject: (flowchartId: number | string, projectId: number | string | null) => void
+  onDiagramUpdate: (id: number | string, name: string, options?: { silent?: boolean }) => void
+  onNoteUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void
+  onDrawingUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void
+  onFlowchartUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void
+  onMoveDiagramToProject: (diagramId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void
+  onMoveNoteToProject: (noteId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void
+  onMoveDrawingToProject: (drawingId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void
+  onMoveFlowchartToProject: (flowchartId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void
   allProjects: Project[]
   searchQuery: string
   hasMoreProjects?: boolean
@@ -167,18 +168,23 @@ export function NavProjects({
     if (editingFile && editingFile.name.trim()) {
       const projectId = selectedProjectId === "none" ? null : selectedProjectId
       
-      if (editingFile.type === 'erd') {
-        await onDiagramUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) await onMoveDiagramToProject(editingFile.id, projectId)
-      } else if (editingFile.type === 'notes') {
-        await onNoteUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) await onMoveNoteToProject(editingFile.id, projectId)
-      } else if (editingFile.type === 'drawings') {
-        await onDrawingUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) await onMoveDrawingToProject(editingFile.id, projectId)
-      } else if (editingFile.type === 'flowchart') {
-        await onFlowchartUpdate(editingFile.id, editingFile.name.trim())
-        if (projectId !== editingFile.projectId) await onMoveFlowchartToProject(editingFile.id, projectId)
+      try {
+        if (editingFile.type === 'erd') {
+          await onDiagramUpdate(editingFile.id, editingFile.name.trim(), { silent: true })
+          if (String(projectId) !== String(editingFile.projectId)) await onMoveDiagramToProject(editingFile.id, projectId, { silent: true })
+        } else if (editingFile.type === 'notes') {
+          await onNoteUpdate(editingFile.id, editingFile.name.trim(), { silent: true })
+          if (String(projectId) !== String(editingFile.projectId)) await onMoveNoteToProject(editingFile.id, projectId, { silent: true })
+        } else if (editingFile.type === 'drawings') {
+          await onDrawingUpdate(editingFile.id, editingFile.name.trim(), { silent: true })
+          if (String(projectId) !== String(editingFile.projectId)) await onMoveDrawingToProject(editingFile.id, projectId, { silent: true })
+        } else if (editingFile.type === 'flowchart') {
+          await onFlowchartUpdate(editingFile.id, editingFile.name.trim(), { silent: true })
+          if (String(projectId) !== String(editingFile.projectId)) await onMoveFlowchartToProject(editingFile.id, projectId, { silent: true })
+        }
+        toast.success('File updated successfully')
+      } catch (err) {
+        toast.error('Failed to update file')
       }
       
       setIsEditFileDialogOpen(false)
@@ -242,6 +248,21 @@ export function NavProjects({
     }
   }
 
+  const getIcon = () => {
+    switch (sidebarView) {
+      case 'erd': return Database
+      case 'notes': return StickyNote
+      case 'drawings': return PenTool
+      case 'flowchart': return Network
+      default: return Database
+    }
+  }
+
+  const allFiles = getFilesForCurrentView().filter(f => !f.is_deleted);
+  const activeFileId = getActiveFileId();
+  const onFileSelect = getOnFileSelect();
+  const fileIcon = getIcon();
+
   return (
     <>
       <ProjectGroup 
@@ -251,6 +272,7 @@ export function NavProjects({
         isProjectsLoading={!!isProjectsLoading}
         hasMoreProjects={!!hasMoreProjects}
         sidebarView={sidebarView}
+        view={view}
         isMobile={isMobile}
         onProjectSelect={onProjectSelect}
         onProjectCreateClick={() => {
@@ -265,44 +287,41 @@ export function NavProjects({
         setDeletingProject={setDeletingProject}
         setIsProjectDeleteConfirmOpen={setIsProjectDeleteConfirmOpen}
         getFileCount={getFileCount}
-      />
-
-      <FileGroup 
-        sidebarView={sidebarView}
-        view={view}
-        isOnline={isOnline}
-        isLoading={
-          (sidebarView === 'erd' && !!isDiagramsLoading) || 
-          (sidebarView === 'notes' && !!isNotesLoading) || 
-          (sidebarView === 'drawings' && !!isDrawingsLoading) || 
-          (sidebarView === 'flowchart' && !!isFlowchartsLoading)
-        }
-        hasMore={
-          (sidebarView === 'erd' && !!hasMoreDiagrams) || 
-          (sidebarView === 'notes' && !!hasMoreNotes) || 
-          (sidebarView === 'drawings' && !!hasMoreDrawings) || 
-          (sidebarView === 'flowchart' && !!hasMoreFlowcharts)
-        }
-        searchQuery={searchQuery}
-        files={getFilesForCurrentView().filter(f => !f.is_deleted && (activeProjectId === null || String(f.project_id) === String(activeProjectId)))}
-        activeFileId={getActiveFileId()}
-        onFileSelect={getOnFileSelect()}
-        onAddClick={() => {
-          setSelectedProjectId(activeProjectId?.toString() || "none")
-          setFileName("")
-          setIsFileDialogOpen(true)
-        }}
-        onLoadMore={
-          sidebarView === 'erd' ? onLoadMoreDiagrams! : 
-          sidebarView === 'notes' ? onLoadMoreNotes! : 
-          sidebarView === 'drawings' ? onLoadMoreDrawings! : 
-          onLoadMoreFlowcharts!
-        }
+        
+        // New Props for Tree View
+        files={allFiles}
+        activeFileId={activeFileId}
+        onFileSelect={onFileSelect}
+        fileIcon={fileIcon}
         setEditingFile={setEditingFile}
         setSelectedProjectId={setSelectedProjectId}
         setIsEditFileDialogOpen={setIsEditFileDialogOpen}
         setDeletingFile={setDeletingFile}
         setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
+        onAddClick={() => {
+          setSelectedProjectId(activeProjectId?.toString() || "none")
+          setFileName("")
+          setIsFileDialogOpen(true)
+        }}
+        hasMoreFiles={
+          (sidebarView === 'erd' && !!hasMoreDiagrams) || 
+          (sidebarView === 'notes' && !!hasMoreNotes) || 
+          (sidebarView === 'drawings' && !!hasMoreDrawings) || 
+          (sidebarView === 'flowchart' && !!hasMoreFlowcharts)
+        }
+        onLoadMoreFiles={
+          sidebarView === 'erd' ? onLoadMoreDiagrams! : 
+          sidebarView === 'notes' ? onLoadMoreNotes! : 
+          sidebarView === 'drawings' ? onLoadMoreDrawings! : 
+          onLoadMoreFlowcharts!
+        }
+        isFilesLoading={
+          (sidebarView === 'erd' && !!isDiagramsLoading) || 
+          (sidebarView === 'notes' && !!isNotesLoading) || 
+          (sidebarView === 'drawings' && !!isDrawingsLoading) || 
+          (sidebarView === 'flowchart' && !!isFlowchartsLoading)
+        }
+        searchQuery={searchQuery}
       />
 
       <SidebarModals 

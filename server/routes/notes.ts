@@ -164,9 +164,15 @@ router.get("/:id", authenticate, async (req: ExpressRequest, res: ExpressRespons
 
 router.put("/:id", authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
   const { title, content, project_id } = req.body;
+  
+  const updateData: any = { updated_at: new Date().toISOString() };
+  if (title !== undefined) updateData.title = title;
+  if (content !== undefined) updateData.content = content;
+  if (project_id !== undefined) updateData.project_id = project_id;
+
   const { error } = await supabase
     .from("notes")
-    .update({ title, content, project_id: project_id || null, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", req.params.id)
     .eq("user_id", (req as any).user.id);
 

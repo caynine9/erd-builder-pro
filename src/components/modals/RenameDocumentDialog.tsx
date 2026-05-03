@@ -10,6 +10,14 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { toast } from 'sonner';
 
 interface RenameDocumentDialogProps {
   isOpen: boolean;
@@ -18,10 +26,17 @@ interface RenameDocumentDialogProps {
   activeDocument: any | null;
   newName: string;
   setNewName: (name: string) => void;
-  updateDiagram: (id: string | number, name: string) => void;
-  updateNote: (id: string | number, name: string) => void;
-  updateDrawing: (id: string | number, name: string) => void;
-  updateFlowchart: (id: string | number, name: string) => void;
+  projects: any[];
+  selectedProjectId: string;
+  setSelectedProjectId: (id: string) => void;
+  updateDiagram: (id: string | number, name: string, options?: { silent?: boolean }) => void;
+  updateNote: (id: string | number, name: string, options?: { silent?: boolean }) => void;
+  updateDrawing: (id: string | number, name: string, options?: { silent?: boolean }) => void;
+  updateFlowchart: (id: string | number, name: string, options?: { silent?: boolean }) => void;
+  onMoveDiagramToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
+  onMoveNoteToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
+  onMoveDrawingToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
+  onMoveFlowchartToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
 }
 
 export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
@@ -31,19 +46,48 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
   activeDocument,
   newName,
   setNewName,
+  projects,
+  selectedProjectId,
+  setSelectedProjectId,
   updateDiagram,
   updateNote,
   updateDrawing,
   updateFlowchart,
+  onMoveDiagramToProject,
+  onMoveNoteToProject,
+  onMoveDrawingToProject,
+  onMoveFlowchartToProject,
 }) => {
-  const handleSave = () => {
+  const handleSave = async () => {
     const id = activeDocument?.id;
     if (id && newName.trim()) {
-      if (view === 'erd') updateDiagram(id, newName);
-      else if (view === 'notes') updateNote(id, newName);
-      else if (view === 'drawings') updateDrawing(id, newName);
-      else if (view === 'flowchart') updateFlowchart(id, newName);
-      onOpenChange(false);
+      const projectId = selectedProjectId === "none" ? null : selectedProjectId;
+      const currentProjectId = activeDocument?.project_id || activeDocument?.projectId;
+      const hasNameChanged = newName.trim() !== (activeDocument?.title || activeDocument?.name);
+      const hasProjectChanged = String(projectId) !== String(currentProjectId);
+
+      try {
+        // 1. Rename (silent)
+        if (hasNameChanged) {
+          if (view === 'erd') await updateDiagram(id, newName, { silent: true });
+          else if (view === 'notes') await updateNote(id, newName, { silent: true });
+          else if (view === 'drawings') await updateDrawing(id, newName, { silent: true });
+          else if (view === 'flowchart') await updateFlowchart(id, newName, { silent: true });
+        }
+
+        // 2. Move if changed (silent)
+        if (hasProjectChanged) {
+          if (view === 'erd') await onMoveDiagramToProject(id, projectId, { silent: true });
+          else if (view === 'notes') await onMoveNoteToProject(id, projectId, { silent: true });
+          else if (view === 'drawings') await onMoveDrawingToProject(id, projectId, { silent: true });
+          else if (view === 'flowchart') await onMoveFlowchartToProject(id, projectId, { silent: true });
+        }
+
+        toast.success('Document updated successfully');
+        onOpenChange(false);
+      } catch (error) {
+        toast.error('Failed to update document');
+      }
     }
   };
 
@@ -51,9 +95,9 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename Document</DialogTitle>
+          <DialogTitle>Edit Document</DialogTitle>
           <DialogDescription>
-            Enter a new name for your {view === 'erd' ? 'diagram' : view === 'notes' ? 'note' : view === 'drawings' ? 'drawing' : 'flowchart'}.
+            Update the name and project for your {view === 'erd' ? 'diagram' : view === 'notes' ? 'note' : view === 'drawings' ? 'drawing' : 'flowchart'}.
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
@@ -76,6 +120,27 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
                 autoFocus
               />
             </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Project
+              </label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue>
+                    {selectedProjectId === "none" ? "Uncategorized" : projects.find(p => p.id.toString() === selectedProjectId)?.name || "Select Project"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Uncategorized</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </DialogBody>
         <DialogFooter>
@@ -83,7 +148,7 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
             Cancel
           </DialogClose>
           <Button 
-            disabled={!newName.trim() || newName === (activeDocument?.title || activeDocument?.name)}
+            disabled={!newName.trim()}
             onClick={handleSave}
             className="h-9 px-6"
           >

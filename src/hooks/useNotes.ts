@@ -35,7 +35,7 @@ export function useNotes(isGuest: boolean = false) {
     if (!options?.silent) setIsLoading(true);
     try {
       const offset = isLoadMore ? notesRef.current.length : 0;
-      const projIdParam = (projectId === null || projectId === 'null') ? 'null' : projectId;
+      const projIdParam = (projectId === null || projectId === 'null' || projectId === 'none') ? 'null' : projectId;
       const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const publicParam = isPublic !== null ? `&is_public=${isPublic}` : '';
       const res = await fetch(`/api/notes?limit=${limit}&offset=${offset}&project_id=${projIdParam}${qParam}${publicParam}`);
@@ -122,7 +122,7 @@ export function useNotes(isGuest: boolean = false) {
     return await createNote(newTitle, sourceNote.project_id, content);
   };
 
-  const updateNote = async (id: number | string, title: string) => {
+  const updateNote = async (id: number | string, title: string, options?: { silent?: boolean }) => {
     if (isGuest) {
       const note = await localPersistence.getResource(id);
       if (note) {
@@ -130,7 +130,7 @@ export function useNotes(isGuest: boolean = false) {
         note.updated_at = new Date().toISOString();
         await localPersistence.saveResource(note);
         setNotesList(prev => prev.map(n => n.id === id ? { ...n, title } : n));
-        toast.success('Note renamed locally');
+        if (!options?.silent) toast.success('Note renamed locally');
       }
       return;
     }
@@ -143,7 +143,7 @@ export function useNotes(isGuest: boolean = false) {
       });
       if (res.ok) {
         setNotesList(prev => prev.map(n => n.id === id ? { ...n, title } : n));
-        toast.success('Note renamed successfully');
+        if (!options?.silent) toast.success('Note renamed successfully');
       }
     } catch (err) {}
   };
@@ -172,14 +172,14 @@ export function useNotes(isGuest: boolean = false) {
     } catch (err) {}
   };
 
-  const moveNoteToProject = async (noteId: number | string, projectId: number | string | null) => {
+  const moveNoteToProject = async (noteId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => {
     if (isGuest) {
       const note = await localPersistence.getResource(noteId);
       if (note) {
         note.project_id = projectId;
         await localPersistence.saveResource(note);
         setNotesList(prev => prev.map(n => n.id === noteId ? { ...n, project_id: projectId } : n));
-        toast.success('Note moved to project locally');
+        if (!options?.silent) toast.success('Note moved to project locally');
       }
       return true;
     }
@@ -192,7 +192,7 @@ export function useNotes(isGuest: boolean = false) {
       });
       if (res.ok) {
         setNotesList(prev => prev.map(n => n.id === noteId ? { ...n, project_id: projectId } : n));
-        toast.success('Note moved to project');
+        if (!options?.silent) toast.success('Note moved to project');
         return true;
       }
     } catch (err) {}
