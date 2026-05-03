@@ -38,6 +38,7 @@ interface ERDViewProps {
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   onNodeClick: (event: React.MouseEvent, node: Node) => void;
+  onNodeDoubleClick?: (event: React.MouseEvent, node: Node) => void;
   onEdgeClick?: (event: React.MouseEvent, edge: Edge) => void;
   onPaneClick: () => void;
   onMove: (event: any, viewport: any) => void;
@@ -55,6 +56,7 @@ interface ERDViewProps {
   canRedo?: boolean;
   takeSnapshot?: (nodes: Node<Entity>[], edges: Edge[]) => void;
   isLoading?: boolean;
+  selectedNodeId?: string | null;
 }
 
 
@@ -67,6 +69,7 @@ export const ERDView = React.memo(({
   onEdgesChange,
   onConnect,
   onNodeClick,
+  onNodeDoubleClick,
   onEdgeClick,
   onPaneClick,
   onMove,
@@ -83,7 +86,8 @@ export const ERDView = React.memo(({
   canUndo,
   canRedo,
   takeSnapshot,
-  isLoading = false
+  isLoading = false,
+  selectedNodeId
 }: ERDViewProps) => {
   if (isLoading) {
     return (
@@ -93,6 +97,20 @@ export const ERDView = React.memo(({
       </div>
     );
   }
+
+  const styledEdges = React.useMemo(() => {
+    if (!selectedNodeId) return edges;
+    return edges.map(edge => {
+      const isConnected = edge.source === selectedNodeId || edge.target === selectedNodeId;
+      if (isConnected) {
+        return {
+          ...edge,
+          className: `${edge.className || ''} edge-animated-active`,
+        };
+      }
+      return edge;
+    });
+  }, [edges, selectedNodeId]);
 
   return (
     <div className="flex-1 relative flex flex-col overflow-hidden border rounded-xl bg-muted/20">
@@ -145,12 +163,13 @@ export const ERDView = React.memo(({
       <div className="flex-1">
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={styledEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
           onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={onPaneClick}
           onMove={onMove}

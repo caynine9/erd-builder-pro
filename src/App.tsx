@@ -99,7 +99,10 @@ function AppContent() {
     if (getSharePathInfo()) return;
     localStorage.setItem('erd-builder-last-view', view);
     localStorage.setItem('erd-builder-last-sidebar-view', sidebarView);
-  }, [view, sidebarView]);
+  }, [sidebarView]);
+
+  const [isTablePropertiesOpen, setIsTablePropertiesOpen] = useState(false);
+  const [isNotePropertiesOpen, setIsNotePropertiesOpen] = useState(false);
 
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isPermanentDeleteConfirmOpen, setIsPermanentDeleteConfirmOpen] = useState(false);
@@ -604,7 +607,10 @@ function AppContent() {
       lastLoadedDiagramIdRef.current = newId;
     });
   };
-  const handleEditEntity = useCallback((e: any) => setSelectedNodeId(e.detail), [setSelectedNodeId]);
+  const handleEditEntity = useCallback((e: any) => {
+    setSelectedNodeId(e.detail);
+    setIsTablePropertiesOpen(true);
+  }, [setSelectedNodeId]);
   const handleDeleteEntity = useCallback((e: any) => deleteEntity(e.detail), [deleteEntity]);
 
   useEffect(() => {
@@ -1006,6 +1012,7 @@ function AppContent() {
                   isLoading={isDiagramsLoading || isERDItemLoading}
                   nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
                   onNodeClick={(e, n) => { if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) setSelectedNodeId(n.id); }}
+                  onNodeDoubleClick={(e, n) => { if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) { setSelectedNodeId(n.id); setIsTablePropertiesOpen(true); } }}
                   onEdgeClick={(_, e) => { if (!isPublicView) setSelectedEdgeId(e.id); }}
                   onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
                   onMove={(_, v) => { viewportRef.current = v; }}
@@ -1029,6 +1036,7 @@ function AppContent() {
                   canUndo={canUndo}
                   canRedo={canRedo}
                   takeSnapshot={takeSnapshot}
+                  selectedNodeId={selectedNodeId}
                 />
               )}
               {view === 'backups' && (
@@ -1084,8 +1092,8 @@ function AppContent() {
         {/* Entity Properties Modal */}
         {!isPublicView && (
           <TablePropertiesModal
-            isOpen={!!selectedNodeId}
-            onOpenChange={(open) => { if (!open) setSelectedNodeId(null); }}
+            isOpen={isTablePropertiesOpen && !!selectedNodeId}
+            onOpenChange={setIsTablePropertiesOpen}
             selectedEntity={selectedEntity}
             handleEntityUpdate={handleEntityUpdate}
             deleteEntity={deleteEntity}
