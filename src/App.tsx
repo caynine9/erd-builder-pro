@@ -1,14 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { 
-  Edge, 
-  Node,
   ReactFlowProvider,
 } from '@xyflow/react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { getMarkdownFromHtml, copyMarkdownToClipboard } from './lib/markdownUtils';
+import { copyMarkdownToClipboard } from './lib/markdownUtils';
 import '@xyflow/react/dist/style.css';
-import TurndownService from 'turndown';
-import { marked } from 'marked';
 
 // Components
 import { AppSidebar } from './components/app-sidebar';
@@ -16,14 +11,16 @@ import { FeedbackDialog } from "@/components/FeedbackDialog"
 import { Login } from './components/Login';
 import { MainHeader } from './components/MainHeader';
 import { DeleteConfirmModal } from './components/modals/DeleteConfirmModal';
-import { ImportSQLModal } from './components/modals/ImportSQLModal';
 import { ImportNoteModal } from './components/modals/ImportNoteModal';
+import { ERDImportModal } from './components/modals/ERDImportModal';
 import { ExportNoteModal } from './components/modals/ExportNoteModal';
 import { NoteExporter } from './lib/exporters/note-exporter';
-import { NoteImporter } from './lib/importers/note-importer';
-import PropertiesPanel from './components/PropertiesPanel';
-
-import RelationshipPropertiesPanel from './components/RelationshipPropertiesPanel';
+import { MoveToTrashAlert } from './components/modals/MoveToTrashAlert';
+import { DeleteEntityAlert } from './components/modals/DeleteEntityAlert';
+import { RenameDocumentDialog } from './components/modals/RenameDocumentDialog';
+import { DuplicateDocumentDialog } from './components/modals/DuplicateDocumentDialog';
+import { TablePropertiesModal } from './components/modals/TablePropertiesModal';
+import { RelationshipPropertiesModal } from './components/modals/RelationshipPropertiesModal';
 
 // Views
 import { ERDView } from './components/views/ERDView';
@@ -37,6 +34,9 @@ import { ForbiddenView } from "./components/views/ForbiddenView";
 // Layout Components
 import { OfflineOverlay } from './components/layout/OfflineOverlay';
 import { AppInitialization } from './components/layout/AppInitialization';
+import { useAppMetadata } from './hooks/useAppMetadata';
+import { useFileOperations } from './hooks/useFileOperations';
+import { useActiveItemGuard } from './hooks/useActiveItemGuard';
 
 // Hooks
 import { useAuth } from './hooks/useAuth';
@@ -71,30 +71,6 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogBody,
-} from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogBody,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog"
-import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { supabase } from './lib/supabase';
 
 
 // Helper to check for share routes
@@ -148,9 +124,6 @@ function AppContent() {
   const lastSaveCallRef = useRef<number>(0);
   const lastFocusFetchRef = useRef<number>(0);
 
-
-
-  
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
@@ -208,32 +181,33 @@ function AppContent() {
 
   // Handlers
   // Computed Values
-  const currentActiveId = useMemo(() => {
-    if (isPublicView) return undefined;
-    const viewMap = { erd: activeDiagramId, notes: activeNoteId, drawings: activeDrawingId, flowchart: activeFlowchartId };
-    return viewMap[view as keyof typeof viewMap];
-  }, [view, isPublicView, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId]);
+  const {
+    currentActiveId,
+    activeDocument,
+    initialShareSettings,
+    activeNote,
+    activeDrawing,
+    activeFlowchart,
+    activeDiagram,
+    featureLabel,
+    activeFileName,
+    activeProjectName,
+    activeFileUid,
+    hasActiveItem,
+  } = useAppMetadata({
+    view,
+    isPublicView,
+    publicData,
+    activeDiagramId,
+    activeNoteId,
+    activeDrawingId,
+    activeFlowchartId,
+    diagrams,
+    notes,
+    drawings,
+    flowcharts,
+  });
 
-  const initialShareSettings = useMemo(() => {
-    if (isPublicView) return publicData ? { is_public: !!publicData.is_public, share_token: publicData.share_token, expiry_date: publicData.expiry_date } : undefined;
-    const docArr = view === 'erd' ? diagrams : view === 'notes' ? notes : view === 'drawings' ? drawings : flowcharts;
-    const id = view === 'erd' ? activeDiagramId : view === 'notes' ? activeNoteId : view === 'drawings' ? activeDrawingId : activeFlowchartId;
-    // @ts-ignore
-    const doc = docArr.find(d => String(d.id) === String(id));
-    if (!doc) return undefined;
-    return { is_public: !!doc.is_public, share_token: doc.share_token, expiry_date: doc.expiry_date };
-  }, [view, isPublicView, publicData, diagrams, notes, drawings, flowcharts, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId]);
-
-
-
-  const activeDocument = useMemo(() => {
-    if (isPublicView) return publicData;
-    const docArr = view === 'erd' ? diagrams : view === 'notes' ? notes : view === 'drawings' ? drawings : flowcharts;
-    const id = currentActiveId;
-    return docArr.find(d => String(d.id) === String(id));
-  }, [view, currentActiveId, diagrams, notes, drawings, flowcharts, isPublicView, publicData]);
-
-  const hasActiveItem = !!activeDocument;
 
   // Sync initialization: Ensure guards allow saving once data is loaded
   useEffect(() => {
@@ -258,46 +232,25 @@ function AppContent() {
     return node ? (node.data as Entity) : null;
   }, [nodes, selectedNodeId]);
 
-  // Sync active states with deletion status
-  useEffect(() => {
-    if (isPublicView) return;
+  useActiveItemGuard({
+    view,
+    activeDiagramId,
+    activeNoteId,
+    activeDrawingId,
+    activeFlowchartId,
+    diagrams,
+    notes,
+    drawings,
+    flowcharts,
+    projects,
+    isPublicView,
+    setActiveDiagramId,
+    setActiveNoteId,
+    setActiveDrawingId,
+    setActiveFlowchartId,
+    setActiveProjectId,
+  });
 
-    const checkActiveItemHealth = () => {
-      // Find the current active object based on view
-      let activeItem: any = null;
-      if (view === 'erd' && activeDiagramId) activeItem = diagrams.find(f => String(f.id) === String(activeDiagramId));
-      else if (view === 'notes' && activeNoteId) activeItem = notes.find(n => String(n.id) === String(activeNoteId));
-      else if (view === 'drawings' && activeDrawingId) activeItem = drawings.find(d => String(d.id) === String(activeDrawingId));
-      else if (view === 'flowchart' && activeFlowchartId) activeItem = flowcharts.find(f => String(f.id) === String(activeFlowchartId));
-
-      if (activeItem && activeItem.is_deleted) {
-        // Current file is deleted, reset it
-        if (view === 'erd') setActiveDiagramId(null);
-        else if (view === 'notes') setActiveNoteId(null);
-        else if (view === 'drawings') setActiveDrawingId(null);
-        else if (view === 'flowchart') setActiveFlowchartId(null);
-        
-        toast.info("Document closed because it was moved to trash.");
-        return;
-      }
-
-      // If active item belongs to a project, check if that project is deleted
-      if (activeItem && activeItem.project_id) {
-        const parentProject = projects.find(p => String(p.id) === String(activeItem.project_id));
-        if (parentProject && parentProject.is_deleted) {
-          // Parent project is deleted, reset everything
-          setActiveProjectId(null);
-          setActiveDiagramId(null);
-          setActiveNoteId(null);
-          setActiveDrawingId(null);
-          setActiveFlowchartId(null);
-          toast.warning("Project was deleted. Closing current document.");
-        }
-      }
-    };
-
-    checkActiveItemHealth();
-  }, [view, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId, diagrams, notes, drawings, flowcharts, projects, isPublicView]);
   useEffect(() => {
     const shareInfo = getSharePathInfo();
     if (shareInfo) {
@@ -863,12 +816,24 @@ function AppContent() {
     }
   };
 
-  const activeNote = isPublicView ? publicData : notes.find(n => n.id === activeNoteId);
-  const activeDrawing = isPublicView ? publicData : drawings.find(d => d.id === activeDrawingId);
-  const activeFlowchart = isPublicView ? publicData : flowcharts.find(f => f.id === activeFlowchartId);
-  const activeDiagram = isPublicView ? publicData : diagrams.find(f => f.id === activeDiagramId);
-  
-  const featureLabel = isPublicView ? `Public Shared ${view}` : (view === 'erd' ? 'Diagrams' : view === 'notes' ? 'Notes' : view === 'drawings' ? 'Drawings' : view === 'flowchart' ? 'Flowcharts' : view === 'changelog' ? 'Changelog' : view === 'backups' ? 'Backups' : 'Trash Bin');
+  const {
+    handleExportMarkdown,
+    handleImportMarkdown,
+    handleCopyMarkdown,
+    executeExportMarkdown,
+    executeImportMarkdown,
+  } = useFileOperations({
+    activeNote,
+    activeNoteId,
+    activeProjectId,
+    createNote,
+    saveNote,
+    setActiveNoteId,
+    handleNoteChange,
+    setIsExportNoteModalOpen,
+    setIsImportNoteModalOpen,
+  });
+
 
 
 
@@ -907,78 +872,7 @@ function AppContent() {
     }
   };
 
-  const activeFileName = isPublicView ? (publicData?.name || publicData?.title || 'Shared Document') : (view === 'erd' ? activeDiagram?.name : view === 'notes' ? activeNote?.title : view === 'drawings' ? activeDrawing?.title : view === 'flowchart' ? activeFlowchart?.title : null);
-  const activeProjectName = isPublicView ? publicData?.projects?.name : (view === 'erd' ? activeDiagram?.projects?.name : view === 'notes' ? activeNote?.projects?.name : view === 'drawings' ? activeDrawing?.projects?.name : view === 'flowchart' ? activeFlowchart?.projects?.name : null);
-  const activeFileUid = isPublicView ? publicData?.uid : (view === 'erd' ? activeDiagram?.uid : view === 'notes' ? activeNote?.uid : view === 'drawings' ? activeDrawing?.uid : view === 'flowchart' ? activeFlowchart?.uid : undefined);
 
-  const handleExportMarkdown = useCallback(() => {
-    setIsExportNoteModalOpen(true);
-  }, []);
-
-  const handleImportMarkdown = useCallback(() => {
-    setIsImportNoteModalOpen(true);
-  }, []);
-
-  const handleCopyMarkdown = useCallback(async () => {
-    if (activeNote) {
-      await copyMarkdownToClipboard(activeNote.content);
-    }
-  }, [activeNote]);
-
-  const executeExportMarkdown = useCallback(() => {
-    if (!activeNote) return;
-    
-    const markdown = getMarkdownFromHtml(activeNote.content);
-    const fileName = `${(activeNote.title || 'Note').replace(/\s+/g, '_').toLowerCase()}.md`;
-    
-    const blob = new Blob([markdown], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Note exported to Markdown");
-  }, [activeNote]);
-
-  const executeImportMarkdown = useCallback(async (file: File) => {
-    const toastId = toast.loading(`Importing ${file.name}...`);
-    try {
-      let html = '';
-      const extension = file.name.split('.').pop()?.toLowerCase();
-
-      if (extension === 'docx') {
-        html = await NoteImporter.convertDocxToHtml(file);
-      } else if (extension === 'doc') {
-        html = await NoteImporter.convertDocToHtml(file);
-      } else {
-        // Use the centralized importer for Markdown (handles task lists, images, etc.)
-        html = await NoteImporter.convertMarkdownToHtml(file);
-      }
-      
-      if (!activeNoteId) {
-        // No note active, create a new one
-        const baseName = file.name.replace(/\.[^/.]+$/, "");
-        const newNote = await createNote(baseName, activeProjectId === 'all' ? null : activeProjectId);
-        if (newNote) {
-          // Update the content of the newly created note using saveNote
-          await saveNote({ ...newNote, content: html });
-          setActiveNoteId(newNote.id);
-          toast.success(`Created new note from ${file.name}`, { id: toastId });
-        }
-      } else {
-        // Append instead of overwrite
-        const currentContent = activeNote?.content || '';
-        const separator = currentContent ? '<p></p>' : '';
-        const newContent = currentContent + separator + html;
-        
-        handleNoteChange(newContent);
-        toast.success(`${file.name} imported successfully`, { id: toastId });
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to import file", { id: toastId });
-    }
-  }, [activeNoteId, activeNote, activeProjectId, createNote, updateNote, setActiveNoteId, handleNoteChange]);
 
   if (isAuthenticated === null && !isPublicView) return <AppInitialization type="init" />;
   if (isPublicLoading) return <AppInitialization type="public" view={view} />;
@@ -1141,54 +1035,21 @@ function AppContent() {
                 <BackupsView />
               )}
               {view === 'erd' && (
-                <ImportSQLModal 
+                <ERDImportModal 
                   isOpen={isImportModalOpen}
                   onOpenChange={setIsImportModalOpen}
-                  onImport={(newNodes, newEdges) => {
-                    takeSnapshot(nodes, edges);
-                    
-                    // Handle duplicate names during import
-                    const processedNodes = [...newNodes];
-                    const existingNames = nodes.map(n => n.data.name.toLowerCase());
-                    
-                    processedNodes.forEach(newNode => {
-                      let originalName = newNode.data.name;
-                      let name = originalName;
-                      let counter = 1;
-                      
-                      // Check against existing nodes OR nodes already processed in this import
-                      while (
-                        existingNames.includes(name.toLowerCase()) || 
-                        processedNodes.some(pn => pn !== newNode && pn.data.name.toLowerCase() === name.toLowerCase())
-                      ) {
-                        name = `${originalName}_imported_${counter}`;
-                        counter++;
-                      }
-                      
-                      if (name !== originalName) {
-                        newNode.data.name = name;
-                      }
-                    });
-
-                    const updatedNodes = [...nodes, ...processedNodes];
-                    const updatedEdges = [...edges, ...newEdges];
-                    
-                    setNodes(updatedNodes);
-                    setEdges(updatedEdges);
-
-                    // Force open the safety gate and trigger immediate save
-                    if (activeDiagramId) {
-                      lastLoadedDiagramIdRef.current = activeDiagramId;
-                      setIsLocalSaving(true);
-                      
-                      // Perform immediate local save for imported data
-                      saveDiagram(updatedNodes, updatedEdges, viewportRef.current).then(() => {
-                        setIsLocalSaving(false);
-                        triggerDebouncedSync();
-                        broadcastMessage(BroadcastMessageType.DRAFT_UPDATED, DraftType.ERD, activeDiagramId);
-                      });
-                    }
-                  }}
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                  activeDiagramId={activeDiagramId}
+                  takeSnapshot={takeSnapshot}
+                  saveDiagram={saveDiagram}
+                  triggerDebouncedSync={triggerDebouncedSync}
+                  broadcastMessage={broadcastMessage}
+                  setIsLocalSaving={setIsLocalSaving}
+                  viewportRef={viewportRef}
+                  lastLoadedDiagramIdRef={lastLoadedDiagramIdRef}
                 />
               )}
               {view === 'notes' && activeNote && <NotesView isLoading={isNotesLoading || isNoteItemLoading} activeNoteId={isPublicView ? null : activeNoteId} activeNote={activeNote} saveNote={saveNote} handleNoteChange={handleNoteChange} deleteNote={deleteNote} isReadOnly={isPublicView} />}
@@ -1222,249 +1083,79 @@ function AppContent() {
 
         {/* Entity Properties Modal */}
         {!isPublicView && (
-          <Dialog open={!!selectedNodeId} onOpenChange={(open) => { if (!open) setSelectedNodeId(null); }}>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <div className="flex items-center justify-between pr-8">
-                  <div className="space-y-1 text-left">
-                    <DialogTitle>Table Properties</DialogTitle>
-                    <DialogDescription>
-                      Customize your table name, theme, and column definitions.
-                    </DialogDescription>
-                  </div>
-                  <Button 
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsDeleteAlertOpen(true)}
-                    className="text-destructive hover:bg-destructive/10 -mr-2 shadow-none"
-                    title="Delete Table"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </DialogHeader>
-              
-              <DialogBody>
-                <PropertiesPanel 
-                  selectedEntity={selectedEntity} 
-                  onUpdateEntity={handleEntityUpdate} 
-                  onDeleteEntity={(id) => {
-                    deleteEntity(id);
-                    setSelectedNodeId(null);
-                  }} 
-                />
-              </DialogBody>
-            </DialogContent>
-          </Dialog>
+          <TablePropertiesModal
+            isOpen={!!selectedNodeId}
+            onOpenChange={(open) => { if (!open) setSelectedNodeId(null); }}
+            selectedEntity={selectedEntity}
+            handleEntityUpdate={handleEntityUpdate}
+            deleteEntity={deleteEntity}
+            setSelectedNodeId={setSelectedNodeId}
+            setIsDeleteAlertOpen={setIsDeleteAlertOpen}
+          />
         )}
 
         {/* Rename Dialog */}
         {!isPublicView && (
-          <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Rename Document</DialogTitle>
-                <DialogDescription>
-                  Enter a new name for your {view === 'erd' ? 'diagram' : view === 'notes' ? 'note' : view === 'drawings' ? 'drawing' : 'flowchart'}.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogBody>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="rename-input" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      New Name
-                    </label>
-                    <input
-                      id="rename-input"
-                      type="text"
-                      className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newName.trim()) {
-                          const id = activeDocument?.id;
-                          if (id) {
-                            if (view === 'erd') updateDiagram(id, newName);
-                            else if (view === 'notes') updateNote(id, newName);
-                            else if (view === 'drawings') updateDrawing(id, newName);
-                            else if (view === 'flowchart') updateFlowchart(id, newName);
-                            setIsRenameDialogOpen(false);
-                          }
-                        }
-                      }}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-              </DialogBody>
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" className="h-9" />}>
-                  Cancel
-                </DialogClose>
-                <Button 
-                  disabled={!newName.trim() || newName === (activeDocument?.title || activeDocument?.name)}
-                  onClick={() => {
-                    const id = activeDocument?.id;
-                    if (id && newName.trim()) {
-                      if (view === 'erd') updateDiagram(id, newName);
-                      else if (view === 'notes') updateNote(id, newName);
-                      else if (view === 'drawings') updateDrawing(id, newName);
-                      else if (view === 'flowchart') updateFlowchart(id, newName);
-                      setIsRenameDialogOpen(false);
-                    }
-                  }}
-                  className="h-9 px-6"
-                >
-                  Save Changes
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <RenameDocumentDialog
+            isOpen={isRenameDialogOpen}
+            onOpenChange={setIsRenameDialogOpen}
+            view={view}
+            activeDocument={activeDocument}
+            newName={newName}
+            setNewName={setNewName}
+            updateDiagram={updateDiagram}
+            updateNote={updateNote}
+            updateDrawing={updateDrawing}
+            updateFlowchart={updateFlowchart}
+          />
         )}
 
         {/* Move to Trash Confirmation Alert */}
-        <AlertDialog open={isMoveToTrashAlertOpen} onOpenChange={setIsMoveToTrashAlertOpen}>
-          <AlertDialogContent size="sm" className="max-w-[400px]">
-            <AlertDialogHeader className="flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-                <Trash2 className="w-6 h-6 text-destructive" />
-              </div>
-              <AlertDialogTitle className="text-xl sm:text-center">Move to Trash?</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogBody className="text-center">
-              <AlertDialogDescription>
-                Are you sure you want to move "{activeDocument?.title || activeDocument?.name || 'this item'}" to trash?
-                <br />
-                You can restore it later from the trash bin.
-              </AlertDialogDescription>
-            </AlertDialogBody>
-            <AlertDialogFooter className="sm:justify-center flex-col sm:flex-row gap-2 mt-2">
-              <AlertDialogCancel className="mt-0 w-full sm:w-auto">Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={() => {
-                  if (currentActiveId) {
-                    if (view === 'erd') deleteDiagram(currentActiveId);
-                    else if (view === 'notes') deleteNote(currentActiveId);
-                    else if (view === 'drawings') deleteDrawing(currentActiveId);
-                    else if (view === 'flowchart') deleteFlowchart(currentActiveId);
-                    fetchTrash();
-                    setIsMoveToTrashAlertOpen(false);
-                  }
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
-              >
-                Move to Trash
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <MoveToTrashAlert
+  isOpen={isMoveToTrashAlertOpen}
+  onOpenChange={setIsMoveToTrashAlertOpen}
+  activeDocument={activeDocument}
+  view={view}
+  deleteDiagram={deleteDiagram}
+  deleteNote={deleteNote}
+  deleteDrawing={deleteDrawing}
+  deleteFlowchart={deleteFlowchart}
+  fetchTrash={fetchTrash}
+/>
+
 
         {/* Relationship Properties Modal */}
         {!isPublicView && (
-          <Dialog open={!!selectedEdgeId} onOpenChange={(open) => { if (!open) setSelectedEdgeId(null); }}>
-            <DialogContent className="sm:max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Relationship Properties</DialogTitle>
-                <DialogDescription>
-                  Set the cardinality between these two tables.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogBody>
-                <RelationshipPropertiesPanel 
-                  selectedEdge={edges.find(e => e.id === selectedEdgeId) || null} 
-                  nodes={nodes} 
-                  onUpdateEdge={handleEdgeUpdate} 
-                  onDeleteEdge={deleteEdge}
-                />
-              </DialogBody>
-            </DialogContent>
-          </Dialog>
+          <RelationshipPropertiesModal
+            isOpen={!!selectedEdgeId}
+            onOpenChange={(open) => { if (!open) setSelectedEdgeId(null); }}
+            selectedEdge={edges.find(e => e.id === selectedEdgeId) || null}
+            nodes={nodes}
+            handleEdgeUpdate={handleEdgeUpdate}
+            deleteEdge={deleteEdge}
+          />
         )}
 
         {/* Delete Confirmation Alert */}
-        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-          <AlertDialogContent size="sm" className="max-w-[400px]">
-            <AlertDialogHeader className="flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-                <AlertTriangle className="w-6 h-6 text-destructive" />
-              </div>
-              <AlertDialogTitle className="text-xl sm:text-center">Delete Table</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogBody className="text-center">
-              <AlertDialogDescription>
-                Are you sure you want to delete the table "{selectedEntity?.name}"?
-                <br />
-                This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogBody>
-            <AlertDialogFooter className="sm:justify-center flex-col sm:flex-row gap-2 mt-2">
-              <AlertDialogCancel className="mt-0 w-full sm:w-auto">Cancel</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={() => {
-                  if (selectedEntity) {
-                    deleteEntity(selectedEntity.id);
-                    setSelectedNodeId(null);
-                    setIsDeleteAlertOpen(false);
-                  }
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <DeleteEntityAlert
+          isOpen={isDeleteAlertOpen}
+          onOpenChange={setIsDeleteAlertOpen}
+          selectedEntity={selectedEntity}
+          deleteEntity={deleteEntity}
+          setSelectedNodeId={setSelectedNodeId}
+        />
 
 
         {/* Duplicate Document Dialog */}
-        <Dialog open={isDuplicateDialogOpen} onOpenChange={setIsDuplicateDialogOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Duplicate Document</DialogTitle>
-              <DialogDescription>
-                Create a copy of this {view === 'erd' ? 'diagram' : view === 'notes' ? 'note' : view === 'drawings' ? 'drawing' : 'flowchart'}.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogBody>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="duplicate-input" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    New Name
-                  </label>
-                  <input
-                    id="duplicate-input"
-                    type="text"
-                    className="w-full flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-muted-foreground"
-                    value={duplicateName}
-                    onChange={(e) => setDuplicateName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && duplicateName.trim()) {
-                        executeDuplicate();
-                      }
-                    }}
-                    autoFocus
-                  />
-                </div>
-              </div>
-            </DialogBody>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="ghost" onClick={() => setIsDuplicateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={executeDuplicate}
-                disabled={!duplicateName.trim() || isRefreshing}
-              >
-                {isRefreshing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Duplicating...
-                  </>
-                ) : "Duplicate"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <DuplicateDocumentDialog
+          isOpen={isDuplicateDialogOpen}
+          onOpenChange={setIsDuplicateDialogOpen}
+          view={view}
+          duplicateName={duplicateName}
+          setDuplicateName={setDuplicateName}
+          executeDuplicate={executeDuplicate}
+          isRefreshing={isRefreshing}
+        />
       </SidebarInset>
     </SidebarProvider>
   );
