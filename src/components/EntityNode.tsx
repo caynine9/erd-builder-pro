@@ -1,6 +1,6 @@
 import React, { memo, useState, useEffect, useMemo } from 'react';
 import { Handle, Position, NodeProps, Node, useUpdateNodeInternals } from '@xyflow/react';
-import { Key, Hash, MoreHorizontal, Edit2, Trash2, Database, AlertCircle } from 'lucide-react';
+import { Key, Hash, MoreHorizontal, Edit2, Trash2, Database, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Entity } from '../types';
 import { cn } from '../lib/utils';
 import { Badge } from "@/components/ui/badge";
@@ -232,10 +232,10 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
       </div>
 
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm" className="max-w-[400px]">
           <AlertDialogHeader>
-            <AlertDialogMedia>
-              <AlertCircle className="text-destructive" />
+            <AlertDialogMedia className="bg-destructive/10">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
             </AlertDialogMedia>
             <AlertDialogTitle>Delete Table</AlertDialogTitle>
           </AlertDialogHeader>
@@ -245,7 +245,7 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
             </AlertDialogDescription>
           </AlertDialogBody>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(false); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={(e) => {
                 e.stopPropagation();

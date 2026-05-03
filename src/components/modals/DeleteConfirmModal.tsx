@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogBody,
+  AlertDialogMedia,
 } from "@/components/ui/alert-dialog";
 import { AlertTriangle } from "lucide-react";
 
@@ -31,20 +32,20 @@ export function DeleteConfirmModal({
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent size="sm" className="max-w-[400px]">
-        <AlertDialogHeader className="flex flex-col items-center justify-center text-center">
-          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
-            <AlertTriangle className="w-6 h-6 text-destructive" />
-          </div>
-          <AlertDialogTitle className="text-xl sm:text-center">Are you absolutely sure?</AlertDialogTitle>
+        <AlertDialogHeader>
+          <AlertDialogMedia className="bg-destructive/10">
+            <AlertTriangle className="w-5 h-5 text-destructive" />
+          </AlertDialogMedia>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
         </AlertDialogHeader>
-        <AlertDialogBody className="text-center">
+        <AlertDialogBody>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the {itemLabel} from our servers.
+            This action cannot be undone. This will permanently delete the <strong>{itemLabel}</strong> from our servers.
           </AlertDialogDescription>
         </AlertDialogBody>
-        <AlertDialogFooter className="sm:justify-center flex-col sm:flex-row gap-2 mt-2">
-          <AlertDialogCancel onClick={onCancel} className="mt-0 w-full sm:w-auto">Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto">
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onCancel}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Permanently Delete
           </AlertDialogAction>
         </AlertDialogFooter>
