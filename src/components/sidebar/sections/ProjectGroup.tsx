@@ -110,7 +110,7 @@ export function ProjectGroup({
               className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground group-data-[state=open]:bg-primary/90"
             >
               <div className="flex items-center justify-center rounded-full bg-primary-foreground text-primary mr-2 shrink-0">
-                <Plus/>
+                <Plus strokeWidth={3} />
               </div>
               <span>Quick Create</span>
             </SidebarMenuButton>
@@ -118,11 +118,11 @@ export function ProjectGroup({
           <DropdownMenuContent className="w-56" align="start" side="bottom" sideOffset={8}>
             <DropdownMenuItem onClick={onProjectCreateClick} className="cursor-pointer py-2">
               <Folder className="mr-2 size-4 text-muted-foreground" />
-              <span className="font-medium">Tambah Workspace</span>
+              <span className="font-medium">Create Workspace</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onAddClick} className="cursor-pointer py-2">
               <Plus className="mr-2 size-4 text-muted-foreground" />
-              <span className="font-medium">Tambah File</span>
+              <span className="font-medium">Create File</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
