@@ -18,6 +18,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { TruncatedTooltip } from "./TruncatedTooltip"
 
 interface FileMenuItemProps {
   item: {
@@ -62,10 +63,9 @@ export function FileMenuItem({
       >
         <Icon className="size-4" />
         <div className="flex-1 min-w-0 flex items-center gap-2 pr-1">
-          <Tooltip>
-            <TooltipTrigger render={<span className="flex-1 min-w-0 truncate">{displayName}</span>} />
-            <TooltipContent side="right" sideOffset={5}>{displayName}</TooltipContent>
-          </Tooltip>
+          <TruncatedTooltip content={displayName} sideOffset={5}>
+            <span className="flex-1 min-w-0 truncate">{displayName}</span>
+          </TruncatedTooltip>
         </div>
       </SidebarMenuButton>
       <DropdownMenu>

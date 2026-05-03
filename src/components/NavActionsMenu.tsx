@@ -117,7 +117,7 @@ export const NavActionsMenu = ({
             className="gap-2 cursor-pointer"
           >
             <Edit2 className="h-4 w-4 text-muted-foreground" />
-            <span>Rename Document</span>
+            <span>Edit Document</span>
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

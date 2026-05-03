@@ -44,7 +44,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     if (!options?.silent) setIsLoading(true);
     try {
       const offset = isLoadMore ? diagramsRef.current.length : 0;
-      const projIdParam = (projectId === null || projectId === 'null') ? 'null' : projectId;
+      const projIdParam = (projectId === null || projectId === 'null' || projectId === 'none') ? 'null' : projectId;
       const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const publicParam = isPublic !== null ? `&is_public=${isPublic}` : '';
       const res = await fetch(`/api/diagrams?limit=${limit}&offset=${offset}&project_id=${projIdParam}${qParam}${publicParam}`);
@@ -119,7 +119,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     return null;
   };
 
-  const updateDiagram = async (id: number | string, name: string) => {
+  const updateDiagram = async (id: number | string, name: string, options?: { silent?: boolean }) => {
     if (isGuest) {
       const diagram = await localPersistence.getResource(id);
       if (diagram) {
@@ -127,7 +127,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
         diagram.updated_at = new Date().toISOString();
         await localPersistence.saveResource(diagram);
         setDiagrams(prev => prev.map(f => f.id === id ? { ...f, name } : f));
-        toast.success('Diagram renamed locally');
+        if (!options?.silent) toast.success('Diagram renamed locally');
       }
       return;
     }
@@ -140,7 +140,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
       });
       if (res.ok) {
         setDiagrams(prev => prev.map(f => f.id === id ? { ...f, name } : f));
-        toast.success('Diagram renamed successfully');
+        if (!options?.silent) toast.success('Diagram renamed successfully');
       } else {
         toast.error('Failed to rename diagram');
       }
@@ -225,14 +225,14 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     }
   };
 
-  const moveDiagramToProject = async (diagramId: number | string, projectId: number | null) => {
+  const moveDiagramToProject = async (diagramId: number | string, projectId: number | null, options?: { silent?: boolean }) => {
     if (isGuest) {
       const diagram = await localPersistence.getResource(diagramId);
       if (diagram) {
         diagram.project_id = projectId;
         await localPersistence.saveResource(diagram);
         setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: projectId } : f));
-        toast.success('Diagram moved to project locally');
+        if (!options?.silent) toast.success('Diagram moved to project locally');
         return true;
       }
       return false;
@@ -246,7 +246,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
       });
       if (res.ok) {
         setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: projectId } : f));
-        toast.success('Diagram moved to project');
+        if (!options?.silent) toast.success('Diagram moved to project');
         return true;
       } else {
         toast.error('Failed to move diagram');
