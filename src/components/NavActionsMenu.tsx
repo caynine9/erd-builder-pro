@@ -69,8 +69,14 @@ export const NavActionsMenu = ({
       return;
     }
     
-    const sharePath = documentType === 'flowchart' ? 'flowchart' : documentType;
-    const url = `${window.location.origin}/share/${sharePath}/${activeFileUid}`;
+    const urlTypeMap: Record<string, string> = {
+      erd: 'diagram',
+      notes: 'note',
+      drawings: 'drawing',
+      flowchart: 'flowchart'
+    };
+    const urlType = urlTypeMap[documentType] || documentType;
+    const url = `${window.location.origin}/view/${urlType}/${activeFileUid}`;
     
     navigator.clipboard.writeText(url);
     toast.success("Public share link copied to clipboard");
@@ -89,47 +95,59 @@ export const NavActionsMenu = ({
           </Button>
         } />
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuItem 
-            disabled={!isOnline} 
-            onClick={onShare}
-            className="gap-2 cursor-pointer"
-          >
-            <Share2 className="h-4 w-4 text-muted-foreground" />
-            <span>Share</span>
-          </DropdownMenuItem>
-          
-          {isPublic && (
+          {isPublicView ? (
             <DropdownMenuItem 
-              disabled={!isOnline || isPublicView} 
               onClick={handleCopyLink}
               className="gap-2 cursor-pointer"
             >
               <Link2 className="h-4 w-4 text-muted-foreground" />
               <span>Copy Public Link</span>
             </DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem 
+                disabled={!isOnline} 
+                onClick={onShare}
+                className="gap-2 cursor-pointer"
+              >
+                <Share2 className="h-4 w-4 text-muted-foreground" />
+                <span>Share</span>
+              </DropdownMenuItem>
+              
+              {isPublic && (
+                <DropdownMenuItem 
+                  disabled={!isOnline} 
+                  onClick={handleCopyLink}
+                  className="gap-2 cursor-pointer"
+                >
+                  <Link2 className="h-4 w-4 text-muted-foreground" />
+                  <span>Copy Public Link</span>
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem 
+                disabled={!isOnline} 
+                onClick={onRename}
+                className="gap-2 cursor-pointer"
+              >
+                <Edit2 className="h-4 w-4 text-muted-foreground" />
+                <span>Edit Document</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem 
+                disabled={!isOnline} 
+                onClick={onDelete}
+                className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Move to Trash</span>
+              </DropdownMenuItem>
+            </>
           )}
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem 
-            disabled={!isOnline || isPublicView} 
-            onClick={onRename}
-            className="gap-2 cursor-pointer"
-          >
-            <Edit2 className="h-4 w-4 text-muted-foreground" />
-            <span>Edit Document</span>
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem 
-            disabled={!isOnline || isPublicView} 
-            onClick={onDelete}
-            className="gap-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>Move to Trash</span>
-          </DropdownMenuItem>
 
           {(documentType === 'notes' || documentType === 'drawings') && !isPublicView && (
             <>

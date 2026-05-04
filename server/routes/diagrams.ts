@@ -66,11 +66,21 @@ router.post("/", authenticate, async (req: ExpressRequest, res: ExpressResponse)
 router.get("/public/:uid", async (req: ExpressRequest, res: ExpressResponse) => {
   const { data: diagram, error: diagramError } = await supabase
     .from("diagrams")
-    .select("*, projects!left(name)")
+    .select("*, projects!left(name, is_deleted)")
     .eq("uid", req.params.uid)
     .single();
 
   if (diagramError || !diagram) return res.status(404).json({ error: "Diagram not found" });
+
+  // Security Check: Is the project deleted?
+  if (diagram.projects && diagram.projects.is_deleted) {
+    return res.status(404).json({ error: "Diagram not found (associated project deleted)" });
+  }
+
+  // Security Check: Is the diagram itself deleted?
+  if (diagram.is_deleted) {
+    return res.status(404).json({ error: "Diagram not found" });
+  }
 
   if (!diagram.is_public) {
     return res.status(403).json({ error: "This document is private" });
@@ -131,7 +141,7 @@ router.put("/:id/share", authenticate, async (req: ExpressRequest, res: ExpressR
   try {
     const { data: currentDiagram } = await supabase
       .from("diagrams")
-      .select("is_public, published_at")
+      .select("*")
       .eq("id", id)
       .single();
 

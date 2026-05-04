@@ -21,6 +21,7 @@ interface FileMenuItemProps {
     name?: string
     title?: string
     project_id?: number | string | null
+    is_public?: boolean
   }
   type: 'erd' | 'notes' | 'drawings' | 'flowchart'
   icon?: any
@@ -50,7 +51,7 @@ export function FileMenuItem({
   const displayName = item.name || item.title || "Untitled"
 
   return (
-    <SidebarMenuSubItem className={cn(!isOnline && "opacity-50 cursor-not-allowed")}>
+    <SidebarMenuSubItem className={cn("relative", !isOnline && "opacity-50 cursor-not-allowed")}>
       <SidebarMenuSubButton 
         isActive={isActive}
         onClick={() => isOnline && onSelect(item.id)}
@@ -61,6 +62,16 @@ export function FileMenuItem({
           <span className={cn("flex-1 truncate", !Icon && "font-normal")}>{displayName}</span>
         </TruncatedTooltip>
       </SidebarMenuSubButton>
+
+      {item.is_public && (
+        <div className="absolute right-8 inset-y-0 flex items-center z-10 pointer-events-none">
+          <div 
+            className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" 
+            title="Publicly Shared"
+          />
+        </div>
+      )}
+
       <DropdownMenu>
         <DropdownMenuTrigger render={
           <SidebarMenuAction 

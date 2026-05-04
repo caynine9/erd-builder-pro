@@ -29,6 +29,7 @@ interface ProjectMenuItemProps {
     drawings_count?: number
     flowcharts_count?: number
     files_count?: number
+    is_public?: boolean
   }
   isOnline: boolean
   isMobile: boolean
@@ -120,6 +121,15 @@ export function ProjectMenuItem({
             <span className="flex-1 min-w-0 truncate font-medium">{item.name}</span>
           </TruncatedTooltip>
         </SidebarMenuButton>
+
+        {item.is_public && (
+          <div className="absolute right-8 inset-y-0 flex items-center z-10 pointer-events-none">
+            <div 
+              className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.6)]" 
+              title="Publicly Shared"
+            />
+          </div>
+        )}
 
         {!isUncategorized && (
           <DropdownMenu>
