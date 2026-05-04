@@ -251,7 +251,10 @@ export function useFlowcharts(isGuest: boolean = false) {
         const res = await fetch(`/api/flowcharts/${id}`);
         if (res.ok) {
           const f = await res.json();
-          if (!f.is_deleted) setActiveFlowchartId(id);
+          if (!f.is_deleted) {
+            setFlowcharts(prev => prev.map(existing => existing.id === id ? { ...existing, data: f.data } : existing));
+            setActiveFlowchartId(id);
+          }
         }
       }
     } finally {

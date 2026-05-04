@@ -267,6 +267,19 @@ export function useNotes(isGuest: boolean = false) {
     
     if (!options?.silent) setIsItemLoading(true);
     try {
+      // Lazy load full content from server if it's missing (excluded from list query)
+      if (!isGuest && note && note.content === undefined) {
+        try {
+          const res = await fetch(`/api/notes/${id}`);
+          if (res.ok) {
+            const fullNote = await res.json();
+            setNotesList(prev => prev.map(n => n.id === id ? { ...n, content: fullNote.content } : n));
+          }
+        } catch (e) {
+          console.error("Failed to lazy load note content:", e);
+        }
+      }
+
       const draft = await localPersistence.getDraft(DraftType.NOTES, id);
       if (draft && draft.sync_pending) {
         try {
