@@ -57,6 +57,9 @@ export function NavProjects({
   onLoadMoreNotes,
   onLoadMoreDrawings,
   onLoadMoreFlowcharts,
+  onNoteCopyMarkdown,
+  onNoteImportMarkdown,
+  onNoteExportMarkdown,
   isOnline,
   isProjectsLoading,
   isDiagramsLoading,
@@ -112,6 +115,9 @@ export function NavProjects({
   onLoadMoreNotes?: () => void
   onLoadMoreDrawings?: () => void
   onLoadMoreFlowcharts?: () => void
+  onNoteCopyMarkdown?: (id: number | string) => void
+  onNoteImportMarkdown?: (projectId: number | string | null) => void
+  onNoteExportMarkdown?: (id: number | string) => void
   isOnline: boolean
   isProjectsLoading?: boolean
   isDiagramsLoading?: boolean
