@@ -61,9 +61,16 @@ export function ShareModal({
   }, [initialSettings]);
 
   // Map drawing to drawings for URL consistency
-  const urlType = documentType === 'drawings' ? 'drawings' : documentType;
+  // Map internal types to professional URL type names
+  const urlTypeMap: Record<string, string> = {
+    erd: 'diagram',
+    notes: 'note',
+    drawings: 'drawing',
+    flowchart: 'flowchart'
+  };
+  const urlType = urlTypeMap[documentType] || documentType;
   
-  const shareUrl = `${window.location.origin}/share/${urlType}/${documentUid}`;
+  const shareUrl = `${window.location.origin}/view/${urlType}/${documentUid}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -81,7 +88,7 @@ export function ShareModal({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const endpoint = documentType === 'erd' ? 'files' : (documentType === 'flowchart' ? 'flowcharts' : documentType);
+      const endpoint = documentType === 'erd' ? 'diagrams' : (documentType === 'flowchart' ? 'flowcharts' : documentType);
       
       let expiry_date = null;
       if (durationDays && !isNaN(parseInt(durationDays))) {

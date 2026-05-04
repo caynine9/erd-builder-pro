@@ -69,11 +69,21 @@ router.post("/", authenticate, async (req: ExpressRequest, res: ExpressResponse)
 router.get("/public/:uid", async (req: ExpressRequest, res: ExpressResponse) => {
   const { data: note, error } = await supabase
     .from("notes")
-    .select("*, projects!left(name)")
+    .select("*, projects!left(name, is_deleted)")
     .eq("uid", req.params.uid)
     .single();
 
   if (error || !note) return res.status(404).json({ error: "Note not found" });
+
+  // Security Check: Is the project deleted?
+  if (note.projects && note.projects.is_deleted) {
+    return res.status(404).json({ error: "Note not found (associated project deleted)" });
+  }
+
+  // Security Check: Is the note itself deleted?
+  if (note.is_deleted) {
+    return res.status(404).json({ error: "Note not found" });
+  }
 
   // Security Check: Is it public?
   if (!note.is_public) {
@@ -114,7 +124,7 @@ router.put("/:id/share", authenticate, async (req: ExpressRequest, res: ExpressR
   try {
     const { data: currentNote } = await supabase
       .from("notes")
-      .select("is_public, published_at")
+      .select("*")
       .eq("id", id)
       .eq("user_id", (req as any).user.id)
       .single();

@@ -77,9 +77,18 @@ import {
 const getSharePathInfo = () => {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname;
-  const match = path.match(/^\/share\/(erd|notes|drawings|flowchart)\/([^/]+)/);
+  const match = path.match(/^\/(view|share)\/(diagram|note|drawing|flowchart|erd|notes|drawings)\/([^/]+)/);
   if (match) {
-    return { type: match[1] as any, uid: match[2] };
+    const typeMap: Record<string, any> = {
+      diagram: 'erd',
+      erd: 'erd',
+      note: 'notes',
+      notes: 'notes',
+      drawing: 'drawings',
+      drawings: 'drawings',
+      flowchart: 'flowchart'
+    };
+    return { type: typeMap[match[2]] || match[2], uid: match[3] };
   }
   return null;
 };
@@ -947,7 +956,13 @@ function AppContent() {
           hasPendingSyncs={hasPendingSyncs}
           onSave={syncDrafts}
           activeFileUid={activeFileUid} activeFileId={currentActiveId} initialShareSettings={initialShareSettings} isPublicView={isPublicView}
-          onSettingsSaved={() => { const pid = activeProjectId === null ? 'all' : activeProjectId; if (view === 'erd') fetchDiagrams(false, pid, debouncedSearchQuery); else if (view === 'notes') fetchNotes(false, pid, debouncedSearchQuery); else if (view === 'drawings') fetchDrawings(false, pid, debouncedSearchQuery); else if (view === 'flowchart') fetchFlowcharts(false, pid, debouncedSearchQuery); }}
+          onSettingsSaved={() => { 
+            const pid = 'all'; 
+            if (view === 'erd') fetchDiagrams(false, pid, debouncedSearchQuery, null, 50); 
+            else if (view === 'notes') fetchNotes(false, pid, debouncedSearchQuery, null, 50); 
+            else if (view === 'drawings') fetchDrawings(false, pid, debouncedSearchQuery, null, 50); 
+            else if (view === 'flowchart') fetchFlowcharts(false, pid, debouncedSearchQuery, null, 50); 
+          }}
           isOnline={isOnline}
           updatedAt={activeDocument?.updated_at}
           onDelete={() => {

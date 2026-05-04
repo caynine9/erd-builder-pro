@@ -69,11 +69,21 @@ router.post("/", authenticate, async (req: ExpressRequest, res: ExpressResponse)
 router.get("/public/:uid", async (req: ExpressRequest, res: ExpressResponse) => {
   const { data: drawing, error } = await supabase
     .from("drawings")
-    .select("*, projects!left(name)")
+    .select("*, projects!left(name, is_deleted)")
     .eq("uid", req.params.uid)
     .single();
 
   if (error || !drawing) return res.status(404).json({ error: "Drawing not found" });
+
+  // Security Check: Is the project deleted?
+  if (drawing.projects && drawing.projects.is_deleted) {
+    return res.status(404).json({ error: "Drawing not found (associated project deleted)" });
+  }
+
+  // Security Check: Is the drawing itself deleted?
+  if (drawing.is_deleted) {
+    return res.status(404).json({ error: "Drawing not found" });
+  }
 
   // Security Check: Is it public?
   if (!drawing.is_public) {
@@ -113,7 +123,7 @@ router.put("/:id/share", authenticate, async (req: ExpressRequest, res: ExpressR
   try {
     const { data: currentDrawing } = await supabase
       .from("drawings")
-      .select("is_public, published_at")
+      .select("*")
       .eq("id", id)
       .eq("user_id", (req as any).user.id)
       .single();

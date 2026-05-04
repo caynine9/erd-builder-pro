@@ -68,11 +68,21 @@ router.post("/", authenticate, async (req: ExpressRequest, res: ExpressResponse)
 router.get("/public/:uid", async (req: ExpressRequest, res: ExpressResponse) => {
   const { data: flowchart, error } = await supabase
     .from("flowcharts")
-    .select("*, projects!left(name)")
+    .select("*, projects!left(name, is_deleted)")
     .eq("uid", req.params.uid)
     .single();
 
   if (error || !flowchart) return res.status(404).json({ error: "Flowchart not found" });
+
+  // Security Check: Is the project deleted?
+  if (flowchart.projects && flowchart.projects.is_deleted) {
+    return res.status(404).json({ error: "Flowchart not found (associated project deleted)" });
+  }
+
+  // Security Check: Is the flowchart itself deleted?
+  if (flowchart.is_deleted) {
+    return res.status(404).json({ error: "Flowchart not found" });
+  }
 
   // Security Check: Is it public?
   if (!flowchart.is_public) {
@@ -112,7 +122,7 @@ router.put("/:id/share", authenticate, async (req: ExpressRequest, res: ExpressR
   try {
     const { data: currentFlowchart } = await supabase
       .from("flowcharts")
-      .select("is_public, published_at")
+      .select("*")
       .eq("id", id)
       .eq("user_id", (req as any).user.id)
       .single();

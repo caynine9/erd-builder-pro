@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS diagrams (
   viewport_x FLOAT DEFAULT 0,
   viewport_y FLOAT DEFAULT 0,
   viewport_zoom FLOAT DEFAULT 1.0,
+  is_public BOOLEAN DEFAULT FALSE,
+  share_token TEXT,
+  expiry_date TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
   _version INTEGER DEFAULT 0
 );
 
@@ -82,6 +86,10 @@ CREATE TABLE IF NOT EXISTS notes (
   deleted_at TIMESTAMPTZ DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_public BOOLEAN DEFAULT FALSE,
+  share_token TEXT,
+  expiry_date TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
   _version INTEGER DEFAULT 0
 );
 
@@ -97,6 +105,10 @@ CREATE TABLE IF NOT EXISTS drawings (
   deleted_at TIMESTAMPTZ DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_public BOOLEAN DEFAULT FALSE,
+  share_token TEXT,
+  expiry_date TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
   _version INTEGER DEFAULT 0
 );
 
@@ -112,6 +124,10 @@ CREATE TABLE IF NOT EXISTS flowcharts (
   deleted_at TIMESTAMPTZ DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_public BOOLEAN DEFAULT FALSE,
+  share_token TEXT,
+  expiry_date TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
   _version INTEGER DEFAULT 0
 );
 
@@ -264,24 +280,28 @@ CREATE POLICY "Users can update their own projects" ON projects FOR UPDATE USING
 CREATE POLICY "Users can delete their own projects" ON projects FOR DELETE USING (auth.uid() = user_id);
 
 -- Diagrams Policies
+CREATE POLICY "Anyone can view public diagrams" ON diagrams FOR SELECT USING (is_public = true AND (expiry_date IS NULL OR expiry_date > NOW()));
 CREATE POLICY "Users can view their own diagrams" ON diagrams FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own diagrams" ON diagrams FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own diagrams" ON diagrams FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own diagrams" ON diagrams FOR DELETE USING (auth.uid() = user_id);
 
 -- Notes Policies
+CREATE POLICY "Anyone can view public notes" ON notes FOR SELECT USING (is_public = true AND (expiry_date IS NULL OR expiry_date > NOW()));
 CREATE POLICY "Users can view their own notes" ON notes FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own notes" ON notes FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own notes" ON notes FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own notes" ON notes FOR DELETE USING (auth.uid() = user_id);
 
 -- Drawings Policies
+CREATE POLICY "Anyone can view public drawings" ON drawings FOR SELECT USING (is_public = true AND (expiry_date IS NULL OR expiry_date > NOW()));
 CREATE POLICY "Users can view their own drawings" ON drawings FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own drawings" ON drawings FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own drawings" ON drawings FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own drawings" ON drawings FOR DELETE USING (auth.uid() = user_id);
 
 -- Flowcharts Policies
+CREATE POLICY "Anyone can view public flowcharts" ON flowcharts FOR SELECT USING (is_public = true AND (expiry_date IS NULL OR expiry_date > NOW()));
 CREATE POLICY "Users can view their own flowcharts" ON flowcharts FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own flowcharts" ON flowcharts FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own flowcharts" ON flowcharts FOR UPDATE USING (auth.uid() = user_id);
