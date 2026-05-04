@@ -150,6 +150,7 @@ CREATE TABLE IF NOT EXISTS entity_changes (
 CREATE INDEX IF NOT EXISTS idx_entity_changes_lookup ON entity_changes(entity_type, entity_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_entity_changes_user ON entity_changes(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entity_changes_retention ON entity_changes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_entity_changes_entity_id ON entity_changes(entity_id);
 
 -- Data Retention Policy: Keep 7 days of history, but always keep at least 5 versions per entity
 -- Note: This requires pg_cron extension to be enabled in Supabase
@@ -200,21 +201,34 @@ BEGIN
   -- Safe version extraction (handles tables without _version column)
   v_version := COALESCE((to_jsonb(NEW)->>'_version')::INTEGER, 0);
 
-  -- INSERT INTO entity_changes (
-  --   entity_type,
-  --   entity_id,
-  --   version,
-  --   user_id,
-  --   changes,
-  --   change_type
-  -- ) VALUES (
-  --   TG_TABLE_NAME, 
-  --   NEW.id::TEXT,
-  --   v_version,
-  --   v_user_id,
-  --   v_changes,
-  --   LOWER(TG_OP)
-  -- );
+  -- 🚀 SMART THROTTLING: Only create a new snapshot if the last one was > 5 minutes ago
+  -- This prevents database bloat from frequent auto-saves while keeping meaningful history.
+  IF TG_OP = 'UPDATE' THEN
+    IF EXISTS (
+      SELECT 1 FROM entity_changes 
+      WHERE entity_type = TG_TABLE_NAME 
+      AND entity_id = NEW.id::TEXT 
+      AND created_at > NOW() - INTERVAL '5 minutes'
+    ) THEN
+      RETURN NEW; -- Skip logging, just perform the update on the main table
+    END IF;
+  END IF;
+
+  INSERT INTO entity_changes (
+    entity_type,
+    entity_id,
+    version,
+    user_id,
+    changes,
+    change_type
+  ) VALUES (
+    TG_TABLE_NAME, 
+    NEW.id::TEXT,
+    v_version,
+    v_user_id,
+    v_changes,
+    LOWER(TG_OP)
+  );
 
   RETURN NEW;
 END;
@@ -224,17 +238,14 @@ $$ LANGUAGE plpgsql;
 -- 1. Diagrams
 DROP TRIGGER IF EXISTS tr_diagrams_version ON diagrams;
 CREATE TRIGGER tr_diagrams_version BEFORE UPDATE ON diagrams FOR EACH ROW EXECUTE FUNCTION increment_version();
--- 1. Diagrams
+-- NOTE: Audit for diagrams is handled via API to capture complex relationships (entities/columns/rels)
 DROP TRIGGER IF EXISTS tr_diagrams_audit ON diagrams;
--- CREATE TRIGGER tr_diagrams_audit AFTER INSERT OR UPDATE ON diagrams FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 2. Notes
 DROP TRIGGER IF EXISTS tr_notes_version ON notes;
 CREATE TRIGGER tr_notes_version BEFORE UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION increment_version();
 DROP TRIGGER IF EXISTS tr_notes_audit ON notes;
--- 2. Notes
-DROP TRIGGER IF EXISTS tr_notes_audit ON notes;
--- CREATE TRIGGER tr_notes_audit AFTER INSERT OR UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+CREATE TRIGGER tr_notes_audit AFTER INSERT OR UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 3. Drawings
 DROP TRIGGER IF EXISTS tr_drawings_version ON drawings;
@@ -242,15 +253,11 @@ CREATE TRIGGER tr_drawings_version BEFORE UPDATE ON drawings FOR EACH ROW EXECUT
 DROP TRIGGER IF EXISTS tr_drawings_audit ON drawings;
 -- 3. Drawings
 DROP TRIGGER IF EXISTS tr_drawings_audit ON drawings;
--- CREATE TRIGGER tr_drawings_audit AFTER INSERT OR UPDATE ON drawings FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+CREATE TRIGGER tr_drawings_audit AFTER INSERT OR UPDATE ON drawings FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 4. Flowcharts
-DROP TRIGGER IF EXISTS tr_flowcharts_version ON flowcharts;
-CREATE TRIGGER tr_flowcharts_version BEFORE UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION increment_version();
 DROP TRIGGER IF EXISTS tr_flowcharts_audit ON flowcharts;
--- 4. Flowcharts
-DROP TRIGGER IF EXISTS tr_flowcharts_audit ON flowcharts;
--- CREATE TRIGGER tr_flowcharts_audit AFTER INSERT OR UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+CREATE TRIGGER tr_flowcharts_audit AFTER INSERT OR UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 5. Entities (ERD Tables)
 DROP TRIGGER IF EXISTS tr_entities_audit ON entities;

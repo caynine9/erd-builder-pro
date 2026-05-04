@@ -446,7 +446,38 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
 
     if (updateError) throw updateError;
 
-    // ✅ STEP 10: Return new version for next save
+    // ✅ STEP 10: Create a Composite Snapshot (Throttled 5 min)
+    // Since diagrams have complex relations, we store the full state (entities + rels) in entity_changes
+    const userId = (req as any).user.id;
+    const { data: lastAudit } = await supabase
+      .from("entity_changes")
+      .select("created_at")
+      .eq("entity_type", "diagrams")
+      .eq("entity_id", diagramId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const shouldAudit = !lastAudit || new Date(lastAudit.created_at) < fiveMinutesAgo;
+
+    if (shouldAudit) {
+      await supabase.from("entity_changes").insert({
+        entity_type: "diagrams",
+        entity_id: diagramId,
+        version: updatedDiagram?._version || currentDiagram._version + 1,
+        user_id: userId,
+        changes: {
+          entities,
+          relationships,
+          viewport,
+          name: currentDiagram.name, // Capture name at snapshot time
+        },
+        change_type: 'update'
+      });
+    }
+
+    // ✅ STEP 11: Return new version for next save
     res.json({ 
       success: true,
       version: updatedDiagram?._version || currentDiagram._version + 1
