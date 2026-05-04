@@ -64,6 +64,12 @@ interface ProjectGroupProps {
   isFilesLoading: boolean
   searchQuery: string
   onNoteImportMarkdown?: (projectId: number | string | null) => void
+  uncategorized: {
+    diagrams: any[];
+    notes: any[];
+    drawings: any[];
+    flowcharts: any[];
+  };
 }
 
 export function ProjectGroup({
@@ -99,9 +105,18 @@ export function ProjectGroup({
   onLoadMoreFiles,
   isFilesLoading,
   searchQuery,
-  onNoteImportMarkdown
+  onNoteImportMarkdown,
+  uncategorized
 }: ProjectGroupProps) {
-  const uncategorizedFiles = files.filter(f => !f.project_id);
+  const uncategorizedFiles = React.useMemo(() => {
+    switch (sidebarView) {
+      case 'erd': return uncategorized.diagrams || []
+      case 'notes': return uncategorized.notes || []
+      case 'drawings': return uncategorized.drawings || []
+      case 'flowchart': return uncategorized.flowcharts || []
+      default: return []
+    }
+  }, [uncategorized, sidebarView]);
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -144,7 +159,7 @@ export function ProjectGroup({
           </div>
         )}
 
-        {projects.map((item) => (
+        {projects.map((item: any) => (
           <ProjectMenuItem 
             key={item.id}
             item={item}
@@ -160,8 +175,16 @@ export function ProjectGroup({
             setIsProjectDeleteConfirmOpen={setIsProjectDeleteConfirmOpen}
             getFileCount={getFileCount}
             
-            // Files for this project
-            files={files.filter(f => String(f.project_id) === String(item.id))}
+            // Files for this project - now coming directly from the project object!
+            files={(() => {
+              switch (sidebarView) {
+                case 'erd': return item.diagrams || []
+                case 'notes': return item.notes || []
+                case 'drawings': return item.drawings || []
+                case 'flowchart': return item.flowcharts || []
+                default: return []
+              }
+            })()}
             activeFileId={activeFileId}
             onFileSelect={onFileSelect}
             fileIcon={fileIcon}
@@ -175,7 +198,7 @@ export function ProjectGroup({
         ))}
 
         {/* Uncategorized Section */}
-        {(uncategorizedFiles.length > 0 || activeProjectId === "none") && (
+        {(uncategorizedFiles.length > 0 || activeProjectId === "none" || (view !== 'trash' && view !== 'changelog' && view !== 'backups')) && (
           <ProjectMenuItem 
             item={{
               id: "uncategorized",

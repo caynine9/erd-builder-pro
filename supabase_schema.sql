@@ -37,41 +37,44 @@ CREATE TABLE IF NOT EXISTS diagrams (
 
 -- Entities Table
 CREATE TABLE IF NOT EXISTS entities (
-  id TEXT PRIMARY KEY, -- Using UUID or custom ID from frontend
+  id TEXT PRIMARY KEY,
   file_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  x FLOAT NOT NULL,
-  y FLOAT NOT NULL,
+  x DOUBLE PRECISION DEFAULT 0,
+  y DOUBLE PRECISION DEFAULT 0,
   color TEXT DEFAULT '#6366f1',
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Columns Table
 CREATE TABLE IF NOT EXISTS columns (
-  id TEXT PRIMARY KEY, -- Using UUID or custom ID from frontend
+  id TEXT PRIMARY KEY,
   entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL,
   is_pk BOOLEAN DEFAULT FALSE,
   is_nullable BOOLEAN DEFAULT TRUE,
-  enum_values TEXT,
+  enum_values TEXT, -- comma separated
   sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Relationships Table
 CREATE TABLE IF NOT EXISTS relationships (
-  id TEXT PRIMARY KEY, -- Using UUID or custom ID from frontend
+  id TEXT PRIMARY KEY,
   file_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
   source_entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
   target_entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
   source_column_id TEXT,
   target_column_id TEXT,
-  type TEXT DEFAULT 'one-to-many',
   source_handle TEXT,
   target_handle TEXT,
+  type TEXT DEFAULT 'one-to-many',
   label TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Notes Table
@@ -148,9 +151,19 @@ CREATE INDEX IF NOT EXISTS idx_entity_changes_lookup ON entity_changes(entity_ty
 CREATE INDEX IF NOT EXISTS idx_entity_changes_user ON entity_changes(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entity_changes_retention ON entity_changes(created_at DESC);
 
--- Data Retention Policy: Keep 7 days of history
+-- Data Retention Policy: Keep 7 days of history, but always keep at least 5 versions per entity
 -- Note: This requires pg_cron extension to be enabled in Supabase
--- SELECT cron.schedule('delete-old-entity-changes', '0 2 * * *', 'DELETE FROM entity_changes WHERE created_at < NOW() - INTERVAL ''7 days''');
+-- SELECT cron.schedule('smart-cleanup-history', '0 2 * * *', $$
+--   DELETE FROM entity_changes
+--   WHERE created_at < NOW() - INTERVAL '7 days'
+--   AND id NOT IN (
+--     SELECT id FROM (
+--       SELECT id, ROW_NUMBER() OVER (PARTITION BY entity_type, entity_id ORDER BY created_at DESC) as rank
+--       FROM entity_changes
+--     ) t
+--     WHERE t.rank <= 5
+--   );
+-- $$);
 
 -- Version Increment Triggers for Optimistic Locking
 CREATE OR REPLACE FUNCTION increment_version()
@@ -187,21 +200,21 @@ BEGIN
   -- Safe version extraction (handles tables without _version column)
   v_version := COALESCE((to_jsonb(NEW)->>'_version')::INTEGER, 0);
 
-  INSERT INTO entity_changes (
-    entity_type,
-    entity_id,
-    version,
-    user_id,
-    changes,
-    change_type
-  ) VALUES (
-    TG_TABLE_NAME, 
-    NEW.id::TEXT,
-    v_version,
-    v_user_id,
-    v_changes,
-    LOWER(TG_OP)
-  );
+  -- INSERT INTO entity_changes (
+  --   entity_type,
+  --   entity_id,
+  --   version,
+  --   user_id,
+  --   changes,
+  --   change_type
+  -- ) VALUES (
+  --   TG_TABLE_NAME, 
+  --   NEW.id::TEXT,
+  --   v_version,
+  --   v_user_id,
+  --   v_changes,
+  --   LOWER(TG_OP)
+  -- );
 
   RETURN NEW;
 END;
@@ -211,38 +224,45 @@ $$ LANGUAGE plpgsql;
 -- 1. Diagrams
 DROP TRIGGER IF EXISTS tr_diagrams_version ON diagrams;
 CREATE TRIGGER tr_diagrams_version BEFORE UPDATE ON diagrams FOR EACH ROW EXECUTE FUNCTION increment_version();
+-- 1. Diagrams
 DROP TRIGGER IF EXISTS tr_diagrams_audit ON diagrams;
-CREATE TRIGGER tr_diagrams_audit AFTER INSERT OR UPDATE ON diagrams FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- CREATE TRIGGER tr_diagrams_audit AFTER INSERT OR UPDATE ON diagrams FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 2. Notes
 DROP TRIGGER IF EXISTS tr_notes_version ON notes;
 CREATE TRIGGER tr_notes_version BEFORE UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION increment_version();
 DROP TRIGGER IF EXISTS tr_notes_audit ON notes;
-CREATE TRIGGER tr_notes_audit AFTER INSERT OR UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- 2. Notes
+DROP TRIGGER IF EXISTS tr_notes_audit ON notes;
+-- CREATE TRIGGER tr_notes_audit AFTER INSERT OR UPDATE ON notes FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 3. Drawings
 DROP TRIGGER IF EXISTS tr_drawings_version ON drawings;
 CREATE TRIGGER tr_drawings_version BEFORE UPDATE ON drawings FOR EACH ROW EXECUTE FUNCTION increment_version();
 DROP TRIGGER IF EXISTS tr_drawings_audit ON drawings;
-CREATE TRIGGER tr_drawings_audit AFTER INSERT OR UPDATE ON drawings FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- 3. Drawings
+DROP TRIGGER IF EXISTS tr_drawings_audit ON drawings;
+-- CREATE TRIGGER tr_drawings_audit AFTER INSERT OR UPDATE ON drawings FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 4. Flowcharts
 DROP TRIGGER IF EXISTS tr_flowcharts_version ON flowcharts;
 CREATE TRIGGER tr_flowcharts_version BEFORE UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION increment_version();
 DROP TRIGGER IF EXISTS tr_flowcharts_audit ON flowcharts;
-CREATE TRIGGER tr_flowcharts_audit AFTER INSERT OR UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- 4. Flowcharts
+DROP TRIGGER IF EXISTS tr_flowcharts_audit ON flowcharts;
+-- CREATE TRIGGER tr_flowcharts_audit AFTER INSERT OR UPDATE ON flowcharts FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 5. Entities (ERD Tables)
 DROP TRIGGER IF EXISTS tr_entities_audit ON entities;
-CREATE TRIGGER tr_entities_audit AFTER INSERT OR UPDATE ON entities FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- CREATE TRIGGER tr_entities_audit AFTER INSERT OR UPDATE ON entities FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 6. Columns (ERD Fields)
 DROP TRIGGER IF EXISTS tr_columns_audit ON columns;
-CREATE TRIGGER tr_columns_audit AFTER INSERT OR UPDATE ON columns FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- CREATE TRIGGER tr_columns_audit AFTER INSERT OR UPDATE ON columns FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- 7. Relationships (ERD Edges)
 DROP TRIGGER IF EXISTS tr_relationships_audit ON relationships;
-CREATE TRIGGER tr_relationships_audit AFTER INSERT OR UPDATE ON relationships FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
+-- CREATE TRIGGER tr_relationships_audit AFTER INSERT OR UPDATE ON relationships FOR EACH ROW EXECUTE FUNCTION log_entity_changes();
 
 -- Performance Indexes for Version Columns
 CREATE INDEX IF NOT EXISTS idx_diagrams_version ON diagrams(_version);
@@ -311,3 +331,23 @@ CREATE POLICY "Users can delete their own flowcharts" ON flowcharts FOR DELETE U
 CREATE POLICY "Users can view their own backups" ON backups FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own backups" ON backups FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Service role can update backups" ON backups FOR UPDATE USING (true);
+
+-- Entity Changes Policies (Safety measures even if triggers are disabled)
+ALTER TABLE entity_changes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can insert their own entity changes" ON entity_changes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view their own entity changes" ON entity_changes FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+-- Entities Policies
+ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view entities of public diagrams" ON entities FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.file_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage entities in their own diagrams" ON entities FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.file_id AND diagrams.user_id = auth.uid()));
+
+-- Columns Policies
+ALTER TABLE columns ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view columns of public diagrams" ON columns FOR SELECT USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.file_id WHERE entities.id = columns.entity_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage columns in their own diagrams" ON columns FOR ALL USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.file_id WHERE entities.id = columns.entity_id AND diagrams.user_id = auth.uid()));
+
+-- Relationships Policies
+ALTER TABLE relationships ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can view relationships of public diagrams" ON relationships FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.file_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage relationships in their own diagrams" ON relationships FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.file_id AND diagrams.user_id = auth.uid()));

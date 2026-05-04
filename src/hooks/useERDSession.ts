@@ -13,12 +13,18 @@ import { toast } from 'sonner';
 import { Entity, Diagram, DraftType } from '../types';
 import { localPersistence } from '../lib/localPersistence';
 import { useUndoRedo } from './useUndoRedo';
+import { useRealtimeSync } from './useRealtimeSync';
 
 export function useERDSession(
   isPublicView: boolean,
   isGuest: boolean,
   isAuthenticated: boolean,
-  setView: (view: any) => void
+  setView: (view: any) => void,
+  options?: {
+    broadcastNodeMove?: (id: string, x: number, y: number) => void;
+    broadcastNodeUpdate?: (id: string, data: Entity) => void;
+    broadcastEdgesUpdate?: (edges: Edge[]) => void;
+  }
 ) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<Entity>>([]);
   const [isItemLoading, setIsItemLoading] = useState(false);
@@ -37,6 +43,27 @@ export function useERDSession(
   useEffect(() => {
     setSaveCounter(prev => prev + 1);
   }, [nodes, edges]);
+
+  // Wrapped onNodesChange to broadcast movement
+  const onNodesChangeWrapped = useCallback((changes: any) => {
+    onNodesChange(changes);
+    
+    // Broadcast movement
+    changes.forEach((change: any) => {
+      if (change.type === 'position' && change.position) {
+        options?.broadcastNodeMove?.(change.id, change.position.x, change.position.y);
+      }
+    });
+  }, [onNodesChange, options?.broadcastNodeMove]);
+
+  // Wrapped onEdgesChange
+  const onEdgesChangeWrapped = useCallback((changes: any) => {
+    onEdgesChange(changes);
+    // Broadcast edges update after change
+    setTimeout(() => {
+      options?.broadcastEdgesUpdate?.(edges);
+    }, 0);
+  }, [onEdgesChange, options?.broadcastEdgesUpdate, edges]);
   
   // Undo/Redo Hook
   const { takeSnapshot, undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo();
@@ -58,7 +85,12 @@ export function useERDSession(
   }, [redo, nodes, edges, setNodes, setEdges]);
 
   const handleDiagramSelect = async (id: number | string, setActiveDiagramId: (id: any) => void, options?: { silent?: boolean }) => {
-    if (!options?.silent) setIsItemLoading(true);
+    if (!options?.silent) {
+      setIsItemLoading(true);
+      // Clear current view to avoid showing stale data from previous diagram
+      setNodes([]);
+      setEdges([]);
+    }
     try {
       const draft = await localPersistence.getDraft(DraftType.ERD, id);
       let data: Diagram;
@@ -69,11 +101,20 @@ export function useERDSession(
         data = localData;
       } else {
         const res = await fetch(`/api/diagrams/${id}`);
-        if (res.status === 401) return;
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error(`Failed to fetch diagram ${id}:`, res.status, errText);
+          toast.error("Failed to load diagram details");
+          return;
+        }
         data = await res.json();
       }
       
-      if (data.is_deleted) return;
+      if (!data || data.is_deleted) return;
+
+      // Ensure entities and relationships are at least empty arrays
+      if (!data.entities) data.entities = [];
+      if (!data.relationships) data.relationships = [];
 
       setActiveDiagramId(id);
       setView('erd');
@@ -187,8 +228,10 @@ export function useERDSession(
     }
 
     takeSnapshot(nodes, edges);
-    setEdges((eds) => addEdge({ ...params, animated: false, type: 'smoothstep', label: '1:N' }, eds));
-  }, [setEdges, isPublicView, nodes, takeSnapshot, edges]);
+    const newEdges = addEdge({ ...params, animated: false, type: 'smoothstep', label: '1:N' }, edges);
+    setEdges(newEdges);
+    options?.broadcastEdgesUpdate?.(newEdges);
+  }, [setEdges, isPublicView, nodes, takeSnapshot, edges, options?.broadcastEdgesUpdate]);
 
   const getUniqueName = (baseName: string, currentNodes: Node<Entity>[]) => {
     let name = baseName;
@@ -224,7 +267,11 @@ export function useERDSession(
     };
     const newNode: Node<Entity> = { id, type: 'entity', position: { x: newEntity.x, y: newEntity.y }, data: newEntity };
     takeSnapshot(nodes, edges);
-    setNodes((nds) => nds.concat(newNode));
+    setNodes((nds) => {
+      const next = nds.concat(newNode);
+      options?.broadcastNodeUpdate?.(newNode.id, newNode.data);
+      return next;
+    });
   };
 
   const updateEntity = useCallback((updatedEntity: Entity) => {
@@ -243,7 +290,13 @@ export function useERDSession(
 
     takeSnapshot(nodes, edges);
     setNodes((nds) => {
-      const newNodes = nds.map((node) => node.id === updatedEntity.id ? { ...node, data: updatedEntity } : node);
+      const newNodes = nds.map((node) => {
+        if (node.id === updatedEntity.id) {
+          options?.broadcastNodeUpdate?.(node.id, updatedEntity);
+          return { ...node, data: updatedEntity };
+        }
+        return node;
+      });
       
       setEdges((eds) => {
         const invalidEdgeIds: string[] = [];
@@ -274,30 +327,38 @@ export function useERDSession(
               duration: 5000
             });
           }, 0);
-          return eds.filter(e => !invalidEdgeIds.includes(e.id));
+          const nextEdges = eds.filter(e => !invalidEdgeIds.includes(e.id));
+          options?.broadcastEdgesUpdate?.(nextEdges);
+          return nextEdges;
         }
         return [...eds];
       });
       
       return newNodes;
     });
-  }, [setNodes, setEdges, takeSnapshot, nodes, edges]);
+  }, [setNodes, setEdges, takeSnapshot, nodes, edges, options?.broadcastNodeUpdate, options?.broadcastEdgesUpdate]);
 
   const deleteEntity = useCallback((id: string) => {
     takeSnapshot(nodes, edges);
     setNodes((nds) => nds.filter((node) => node.id !== id));
-    setEdges((eds) => eds.filter((edge) => edge.source !== id && edge.target !== id));
+    const nextEdges = edges.filter((edge) => edge.source !== id && edge.target !== id);
+    setEdges(nextEdges);
+    options?.broadcastEdgesUpdate?.(nextEdges);
     setSelectedNodeId(null);
-  }, [setNodes, setEdges, takeSnapshot, nodes, edges]);
+  }, [setNodes, setEdges, takeSnapshot, nodes, edges, options?.broadcastEdgesUpdate]);
 
   const handleEdgeUpdate = (edgeId: string, label: string) => {
     takeSnapshot(nodes, edges);
-    setEdges((eds) => eds.map((edge) => edge.id === edgeId ? { ...edge, label } : edge));
+    const nextEdges = edges.map((edge) => edge.id === edgeId ? { ...edge, label } : edge);
+    setEdges(nextEdges);
+    options?.broadcastEdgesUpdate?.(nextEdges);
   };
 
   const deleteEdge = (id: string) => {
     takeSnapshot(nodes, edges);
-    setEdges((eds) => eds.filter((edge) => edge.id !== id));
+    const nextEdges = edges.filter((edge) => edge.id !== id);
+    setEdges(nextEdges);
+    options?.broadcastEdgesUpdate?.(nextEdges);
     setSelectedEdgeId(null);
   };
 
@@ -368,8 +429,8 @@ export function useERDSession(
   }, [nodes, edges, setNodes, setEdges]);
 
   return {
-    nodes, setNodes, onNodesChange,
-    edges, setEdges, onEdgesChange,
+    nodes, setNodes, onNodesChange: onNodesChangeWrapped,
+    edges, setEdges, onEdgesChange: onEdgesChangeWrapped,
     selectedNodeId, setSelectedNodeId,
     selectedEdgeId, setSelectedEdgeId,
     onConnect,

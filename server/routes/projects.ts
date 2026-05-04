@@ -15,17 +15,13 @@ router.get("/", authenticate, async (req: ExpressRequest, res: ExpressResponse) 
     .from("projects")
     .select(`
       *,
-      diagrams(count),
-      notes(count),
-      drawings(count),
-      flowcharts(count)
+      diagrams(id, name, updated_at, is_deleted, project_id),
+      notes(id, title, updated_at, is_deleted, project_id),
+      drawings(id, title, updated_at, is_deleted, project_id),
+      flowcharts(id, title, updated_at, is_deleted, project_id)
     `, { count: 'exact' })
     .eq("is_deleted", false)
-    .eq("user_id", (req as any).user.id)
-    .eq("diagrams.is_deleted", false)
-    .eq("notes.is_deleted", false)
-    .eq("drawings.is_deleted", false)
-    .eq("flowcharts.is_deleted", false);
+    .eq("user_id", (req as any).user.id);
 
   if (q && q.trim()) {
     query = query.ilike("name", `%${q.trim()}%`);
@@ -37,29 +33,40 @@ router.get("/", authenticate, async (req: ExpressRequest, res: ExpressResponse) 
 
   if (error) return handleError(res, error, "Supabase error fetching projects");
   
-  // Aggregate counts into individual properties and a single total files_count
-  const projectsWithCounts = (data || []).map((project: any) => {
-    const diagramsCount = (project.diagrams?.[0]?.count || 0);
-    const notesCount = (project.notes?.[0]?.count || 0);
-    const drawingsCount = (project.drawings?.[0]?.count || 0);
-    const flowchartsCount = (project.flowcharts?.[0]?.count || 0);
+  // Filter out deleted items from the nested arrays (Supabase filter on joins can be tricky, so we do it here)
+  const projectsWithFiles = (data || []).map((project: any) => {
+    const diagrams = (project.diagrams || []).filter((f: any) => !f.is_deleted);
+    const notes = (project.notes || []).filter((f: any) => !f.is_deleted);
+    const drawings = (project.drawings || []).filter((f: any) => !f.is_deleted);
+    const flowcharts = (project.flowcharts || []).filter((f: any) => !f.is_deleted);
     
-    // Create a clean object for the frontend
-    const { diagrams, notes, drawings, flowcharts, ...rest } = project;
     return {
-      ...rest,
-      files_count: diagramsCount + notesCount + drawingsCount + flowchartsCount,
-      diagrams_count: diagramsCount,
-      notes_count: notesCount,
-      drawings_count: drawingsCount,
-      flowcharts_count: flowchartsCount
+      ...project,
+      diagrams,
+      notes,
+      drawings,
+      flowcharts,
+      files_count: diagrams.length + notes.length + drawings.length + flowcharts.length
     };
   });
   
-  const slicedData = projectsWithCounts.slice(0, limit);
+  // Also fetch Uncategorized files (project_id is null)
+  const userId = (req as any).user.id;
+  const [uDiagrams, uNotes, uDrawings, uFlowcharts] = await Promise.all([
+    supabase.from("diagrams").select("id, name, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
+    supabase.from("notes").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
+    supabase.from("drawings").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
+    supabase.from("flowcharts").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
+  ]);
   
   res.json({ 
-    data: slicedData, 
+    data: projectsWithFiles, 
+    uncategorized: {
+      diagrams: uDiagrams.data || [],
+      notes: uNotes.data || [],
+      drawings: uDrawings.data || [],
+      flowcharts: uFlowcharts.data || []
+    },
     total: count
   });
 });

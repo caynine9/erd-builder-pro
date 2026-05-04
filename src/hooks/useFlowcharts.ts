@@ -60,13 +60,15 @@ export function useFlowcharts(isGuest: boolean = false) {
     }
   }, [isGuest]);
 
-  const createFlowchart = async (title: string, projectId?: number | string | null) => {
+  const createFlowchart = async (title: string, projectId?: number | string | null, data?: string) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const newFlowchart: Flowchart = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substr(2, 9) as any,
         title,
-        data: '',
-        project_id: projectId || null,
+        data: data || '',
+        project_id: effectiveProjectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -83,7 +85,7 @@ export function useFlowcharts(isGuest: boolean = false) {
       const res = await fetch('/api/flowcharts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, project_id: projectId }),
+        body: JSON.stringify({ title, project_id: effectiveProjectId, data: data || "" }),
       });
       if (res.ok) {
         const newFlowchart = await res.json();
@@ -209,7 +211,7 @@ export function useFlowcharts(isGuest: boolean = false) {
         flowchart.is_deleted = false;
         flowchart.deleted_at = undefined;
         await localPersistence.saveResource(flowchart);
-        fetchFlowcharts();
+        setFlowcharts(prev => prev.map(f => String(f.id) === String(id) ? { ...f, is_deleted: false } : f));
         toast.success('Flowchart restored locally');
       }
       return;
@@ -218,7 +220,7 @@ export function useFlowcharts(isGuest: boolean = false) {
     try {
       const res = await fetch(`/api/flowcharts/${id}/restore`, { method: 'POST' });
       if (res.ok) {
-        fetchFlowcharts();
+        setFlowcharts(prev => prev.map(f => String(f.id) === String(id) ? { ...f, is_deleted: false } : f));
         toast.success('Flowchart restored successfully');
       }
     } catch (err) {}

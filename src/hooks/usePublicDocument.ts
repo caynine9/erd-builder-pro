@@ -10,9 +10,7 @@ export interface ForbiddenDoc {
 }
 
 export function usePublicDocument(
-  setView: (view: any) => void,
-  setNodes: (nodes: Node<Entity>[] | ((nds: Node<Entity>[]) => Node<Entity>[])) => void,
-  setEdges: (edges: Edge[] | ((eds: Edge[]) => Edge[])) => void
+  setView: (view: any) => void
 ) {
   const [isPublicView, setIsPublicView] = useState(false);
   const [publicData, setPublicData] = useState<any>(null);
@@ -20,7 +18,7 @@ export function usePublicDocument(
   const [forbiddenDoc, setForbiddenDoc] = useState<ForbiddenDoc | null>(null);
   const { setViewport } = useReactFlow();
 
-  const fetchPublicDocument = async (type: string, uid: string, token?: string): Promise<boolean> => {
+  const fetchPublicDocument = async (type: string, uid: string, setNodes?: any, setEdges?: any, token?: string): Promise<boolean> => {
     setIsPublicLoading(true);
     setForbiddenDoc(null);
     try {

@@ -49,6 +49,10 @@ export interface Project {
   notes_count?: number;
   drawings_count?: number;
   flowcharts_count?: number;
+  diagrams?: Diagram[];
+  notes?: Note[];
+  drawings?: Drawing[];
+  flowcharts?: Flowchart[];
 }
 
 export interface Diagram {

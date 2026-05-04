@@ -61,12 +61,14 @@ export function useDrawings(isGuest: boolean = false) {
   }, [isGuest]);
 
   const createDrawing = async (title: string, projectId?: number | string | null, data?: string) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const newDrawing: Drawing = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).substr(2, 9) as any,
         title,
         data: data || '',
-        project_id: projectId || null,
+        project_id: effectiveProjectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -83,7 +85,7 @@ export function useDrawings(isGuest: boolean = false) {
       const res = await fetch('/api/drawings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, project_id: projectId, data: data || "" }),
+        body: JSON.stringify({ title, project_id: effectiveProjectId, data: data || "" }),
       });
       if (res.ok) {
         const newDrawing = await res.json();
@@ -228,7 +230,7 @@ export function useDrawings(isGuest: boolean = false) {
         drawing.is_deleted = false;
         drawing.deleted_at = undefined;
         await localPersistence.saveResource(drawing);
-        fetchDrawings();
+        setDrawings(prev => prev.map(d => String(d.id) === String(id) ? { ...d, is_deleted: false } : d));
         toast.success('Drawing restored locally');
       }
       return;
@@ -237,7 +239,7 @@ export function useDrawings(isGuest: boolean = false) {
     try {
       const res = await fetch(`/api/drawings/${id}/restore`, { method: 'POST' });
       if (res.ok) {
-        fetchDrawings();
+        setDrawings(prev => prev.map(d => String(d.id) === String(id) ? { ...d, is_deleted: false } : d));
         toast.success('Drawing restored successfully');
       }
     } catch (err) {}

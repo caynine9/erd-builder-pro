@@ -55,6 +55,7 @@ import { useSQLGenerator } from './hooks/useSQLGenerator';
 import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { useImageExporter } from './hooks/useImageExporter';
 import { useBroadcastChannel, BroadcastMessageType } from './hooks/useBroadcastChannel';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 
 
 // Views
@@ -149,7 +150,16 @@ function AppContent() {
   const { handleExportSQL } = useSQLGenerator();
   const { handleExportImage, handleExportPDF } = useImageExporter();
 
-  // ERD Session Hook
+  // Public Document Hook
+  const {
+    isPublicView, setIsPublicView, publicData, isPublicLoading, forbiddenDoc, fetchPublicDocument
+  } = usePublicDocument(setView);
+
+  // ERD Session Hook - moved after diagrams state to get access to activeDiagramId
+  const { diagrams, setDiagrams, activeDiagramId, setActiveDiagramId,
+    fetchDiagrams, createDiagram, updateDiagram, deleteDiagram, restoreDiagram, deleteDiagramPermanent, moveDiagramToProject, saveDiagram,
+    hasMoreDiagrams, isLoading: isDiagramsLoading } = useDiagrams(isAuthenticated, view, isGuest);
+
   const { 
     nodes, setNodes, onNodesChange,
     edges, setEdges, onEdgesChange,
@@ -158,26 +168,41 @@ function AppContent() {
     onConnect, addEntity, updateEntity, deleteEntity, handleEdgeUpdate, deleteEdge,
     handleDiagramSelect: selectDiagram, viewportRef,
     undo, redo, canUndo, canRedo, takeSnapshot, isItemLoading: isERDItemLoading, saveCounter
-  } = useERDSession(false, isGuest, isAuthenticated, setView);
+  } = useERDSession(isPublicView, isGuest, isAuthenticated, setView, {
+    broadcastNodeMove: (id, x, y) => broadcastNodeMove(id, x, y),
+    broadcastNodeUpdate: (id, data) => broadcastNodeUpdate(id, data),
+    broadcastEdgesUpdate: (edges) => broadcastEdgesUpdate(edges),
+  });
 
-  // Public Document Hook
-  const {
-    isPublicView, setIsPublicView, publicData, isPublicLoading, forbiddenDoc, fetchPublicDocument
-  } = usePublicDocument(setView, setNodes, setEdges);
+  // Effective ID for realtime sync (works for both owner and public guest)
+  const effectiveDiagramId = isPublicView ? publicData?.id : activeDiagramId;
 
-  // Domain Hooks
-  const { diagrams, setDiagrams, activeDiagramId, setActiveDiagramId,
-    fetchDiagrams, createDiagram, updateDiagram, deleteDiagram, restoreDiagram, deleteDiagramPermanent, moveDiagramToProject, saveDiagram,
-    hasMoreDiagrams, isLoading: isDiagramsLoading } = useDiagrams(isAuthenticated, view, isGuest);
+  const { broadcastNodeMove, broadcastNodeUpdate, broadcastEdgesUpdate } = useRealtimeSync(
+    effectiveDiagramId,
+    setNodes,
+    setEdges
+  );
 
   const { 
-    notes, setNotesList, activeNoteId, setActiveNoteId, fetchNotes, createNote, updateNote, deleteNote, moveNoteToProject, saveNote, restoreNote, deleteNotePermanent,
+    notes, setNotes, activeNoteId, setActiveNoteId, fetchNotes, createNote, updateNote, deleteNote, moveNoteToProject, saveNote, restoreNote, deleteNotePermanent,
     hasMoreNotes, isLoading: isNotesLoading, isItemLoading: isNoteItemLoading, selectNote, duplicateNote
   } = useNotes(isGuest);
   
   const { 
-    projects, activeProjectId, setActiveProjectId, fetchProjects, createProject, updateProject, deleteProject, restoreProject, deleteProjectPermanent,
-    hasMoreProjects, isLoading: isProjectsLoading
+    projects, 
+    setProjects, 
+    uncategorized,
+    setUncategorized,
+    activeProjectId, 
+    setActiveProjectId, 
+    fetchProjects, 
+    createProject, 
+    updateProject, 
+    deleteProject,
+    restoreProject,
+    deleteProjectPermanent,
+    hasMoreProjects,
+    isLoading: isProjectsLoading
   } = useProjects(isGuest);
   
   const { 
@@ -269,7 +294,7 @@ function AppContent() {
     if (shareInfo) {
       setIsPublicView(true);
       const savedToken = sessionStorage.getItem(`share_token_${shareInfo.uid}`);
-      fetchPublicDocument(shareInfo.type, shareInfo.uid, savedToken || undefined);
+      fetchPublicDocument(shareInfo.type, shareInfo.uid, setNodes, setEdges, savedToken || undefined);
     }
 
     if (isInstallable) {
@@ -293,34 +318,89 @@ function AppContent() {
       else if (view === 'flowchart' && activeFlowchartId) { const f = flowcharts.find(f => String(f.id) === String(activeFlowchartId)); if (f) saveFlowchart(f); }
     }
   }, [isOnline, view, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId, nodes, edges]);
-
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-    document.body.classList.add('dark');
-    if (isAuthenticated && !isPublicView) {
-      // Always fetch projects as they are context providers for the sidebar
-      fetchProjects(false, debouncedSearchQuery);
-    }
-  }, [isAuthenticated, fetchProjects, debouncedSearchQuery, isPublicView]);
-
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Optimized Lazy Loading: Sidebar needs global data for tree view
   useEffect(() => {
+    document.documentElement.classList.add('dark');
+    document.body.classList.add('dark');
+    
     if (isAuthenticated && !isPublicView) {
-      const pid = 'all'; // Always fetch all for sidebar tree view stability
+      // One master fetch to rule them all (Sidebar Tree + Initial File Lists)
+      fetchProjects(false, debouncedSearchQuery).then(json => {
+        if (json && json.data) {
+          // Aggregate all files from all projects + uncategorized to populate main states
+          const allDiagrams = [
+            ...json.data.flatMap((p: any) => p.diagrams || []),
+            ...(json.uncategorized?.diagrams || [])
+          ];
+          const allNotes = [
+            ...json.data.flatMap((p: any) => p.notes || []),
+            ...(json.uncategorized?.notes || [])
+          ];
+          const allDrawings = [
+            ...json.data.flatMap((p: any) => p.drawings || []),
+            ...(json.uncategorized?.drawings || [])
+          ];
+          const allFlowcharts = [
+            ...json.data.flatMap((p: any) => p.flowcharts || []),
+            ...(json.uncategorized?.flowcharts || [])
+          ];
+
+          // Update main states to keep them in sync with the tree
+          // IMPORTANT: Merge with existing data to preserve 'content', 'entities', etc. for active items
+          setDiagrams(prev => {
+            const currentMap = new Map(prev.map(d => [String(d.id), d]));
+            return allDiagrams.map(newD => {
+              const existing = currentMap.get(String(newD.id));
+              if (existing) {
+                return { ...newD, entities: existing.entities, relationships: existing.relationships };
+              }
+              return newD;
+            });
+          });
+
+          setNotes(prev => {
+            const currentMap = new Map(prev.map(n => [String(n.id), n]));
+            return allNotes.map(newN => {
+              const existing = currentMap.get(String(newN.id));
+              if (existing) {
+                return { ...newN, content: existing.content };
+              }
+              return newN;
+            });
+          });
+
+          setDrawings(prev => {
+            const currentMap = new Map(prev.map(d => [String(d.id), d]));
+            return allDrawings.map(newD => {
+              const existing = currentMap.get(String(newD.id));
+              if (existing) {
+                return { ...newD, data: existing.data };
+              }
+              return newD;
+            });
+          });
+
+          setFlowcharts(prev => {
+            const currentMap = new Map(prev.map(f => [String(f.id), f]));
+            return allFlowcharts.map(newF => {
+              const existing = currentMap.get(String(newF.id));
+              if (existing) {
+                return { ...newF, data: existing.data };
+              }
+              return newF;
+            });
+          });
+        }
+      });
       
-      // We fetch more items (50) for the sidebar to ensure Shared/Private grouping is robust
-      if (view === 'erd') fetchDiagrams(false, pid, debouncedSearchQuery, null, 50);
-      else if (view === 'notes') fetchNotes(false, pid, debouncedSearchQuery, null, 50);
-      else if (view === 'drawings') fetchDrawings(false, pid, debouncedSearchQuery, null, 50);
-      else if (view === 'flowchart') fetchFlowcharts(false, pid, debouncedSearchQuery, null, 50);
-      else if (view === 'trash') fetchTrash();
+      // Still need trash as it's a different view
+      if (view === 'trash') fetchTrash();
     }
-  }, [isAuthenticated, debouncedSearchQuery, fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts, fetchTrash, isPublicView, view]);
+  }, [isAuthenticated, fetchProjects, debouncedSearchQuery, isPublicView, view, fetchTrash, setDiagrams, setNotes, setDrawings, setFlowcharts]);
 
   // Cross-Tab Synchronization via Broadcast Channel
   const { broadcastMessage } = useBroadcastChannel(useCallback(async (message) => {
@@ -534,13 +614,12 @@ function AppContent() {
           return; 
         }
 
-        // SAFETY 3: Race Condition Guard for empty states
-        if (nodes.length === 0 && lastSaveCallRef.current > 0) {
-          const now = Date.now();
-          if (now - lastFocusFetchRef.current < 5000) {
-             console.warn("[RaceConditionGuard] Blocking save of empty ERD during refresh cycle");
-             return;
-          }
+        // SAFETY 3: Hard Guard for empty states
+        // Never save a completely empty ERD automatically unless we are absolutely sure 
+        // it's not a loading/race condition error.
+        if (nodes.length === 0) {
+           console.warn("[SaveGuard] Blocking auto-save of empty ERD to prevent data loss");
+           return;
         }
         await saveDiagram(nodes, edges, viewportRef.current);
         lastSaveCallRef.current = Date.now();
@@ -573,8 +652,11 @@ function AppContent() {
       
       // 2. Instant Cloud Sync (Supabase)
       syncDrafts();
+
+      // 3. Broadcast update to other clients
+      broadcastNodeUpdate(updatedEntity.id, updatedEntity);
     }
-  }, [updateEntity, nodes, edges, saveDiagram, viewportRef, syncDrafts]);
+  }, [updateEntity, nodes, edges, saveDiagram, viewportRef, syncDrafts, broadcastNodeUpdate]);
 
   const flushPendingSaves = async () => {
     if (!isLocalSaving) return;
@@ -673,6 +755,8 @@ function AppContent() {
   const handleNoteSelect = async (id: number | string) => {
     await flushPendingSaves();
     setView('notes');
+    // Clear current note content to avoid showing stale data while loading
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, content: undefined } : n));
     await selectNote(id);
     lastLoadedNoteIdRef.current = id;
   };
@@ -680,6 +764,8 @@ function AppContent() {
   const handleDrawingSelect = async (id: number | string) => {
     await flushPendingSaves();
     setView('drawings');
+    // Clear current drawing data to avoid showing stale data while loading
+    setDrawings(prev => prev.map(d => d.id === id ? { ...d, data: undefined } : d));
     await selectDrawing(id);
     lastLoadedDrawingIdRef.current = id;
   };
@@ -687,6 +773,8 @@ function AppContent() {
   const handleFlowchartSelect = async (id: number | string) => {
     await flushPendingSaves();
     setView('flowchart');
+    // Clear current flowchart data to avoid showing stale data while loading
+    setFlowcharts(prev => prev.map(f => f.id === id ? { ...f, data: undefined } : f));
     await selectFlowchart(id);
     lastLoadedFlowchartIdRef.current = id;
   };
@@ -699,7 +787,7 @@ function AppContent() {
     if (isIncomingSyncRef.current) return;
 
     const noteId = activeNoteId;
-    setNotesList(prev => prev.map(n => n.id === noteId ? { ...n, content } : n));
+    setNotes(prev => prev.map(n => n.id === noteId ? { ...n, content } : n));
     
     setIsLocalSaving(true);
     if (notesSaveTimeout.current) clearTimeout(notesSaveTimeout.current);
@@ -728,7 +816,7 @@ function AppContent() {
       triggerDebouncedSync();
       broadcastMessage(BroadcastMessageType.DRAFT_UPDATED, DraftType.NOTES, noteId);
     }, 800);
-  }, [activeNoteId, notes, saveNote, setNotesList, triggerDebouncedSync, isRefreshing, isNoteItemLoading, broadcastMessage]);
+  }, [activeNoteId, notes, saveNote, setNotes, triggerDebouncedSync, isRefreshing, isNoteItemLoading, broadcastMessage]);
 
   const drawingsSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const handleDrawingChange = useCallback((data: string) => {
@@ -898,7 +986,7 @@ function AppContent() {
     return (
       <ForbiddenView 
         title={forbiddenDoc.title} message={forbiddenDoc.message} statusCode={forbiddenDoc.status} documentUid={shareInfo?.uid}
-        onSubmitToken={async t => { if (shareInfo) { const s = await fetchPublicDocument(shareInfo.type, shareInfo.uid, t); if (s) sessionStorage.setItem(`share_token_${shareInfo.uid}`, t); else throw new Error("Invalid token"); } }}
+        onSubmitToken={async t => { if (shareInfo) { const s = await fetchPublicDocument(shareInfo.type, shareInfo.uid, setNodes, setEdges, t); if (s) sessionStorage.setItem(`share_token_${shareInfo.uid}`, t); else throw new Error("Invalid token"); } }}
         onReturn={() => window.location.href = '/'}
       />
     );
@@ -912,22 +1000,31 @@ function AppContent() {
 
       {!isPublicView && (
         <AppSidebar 
-          diagrams={diagrams} notes={notes} drawings={drawings} flowcharts={flowcharts} projects={projects}
+          diagrams={diagrams} notes={notes} drawings={drawings} flowcharts={flowcharts} projects={projects} uncategorized={uncategorized}
           activeDiagramId={activeDiagramId} activeNoteId={activeNoteId} activeDrawingId={activeDrawingId} activeFlowchartId={activeFlowchartId} activeProjectId={activeProjectId} view={view}
           onDiagramSelect={handleDiagramSelect} onNoteSelect={handleNoteSelect} onDrawingSelect={handleDrawingSelect} onFlowchartSelect={handleFlowchartSelect} onProjectSelect={setActiveProjectId}
-          onDiagramCreate={async (n, pid) => { const f = await createDiagram(n, pid ? Number(pid) : null); if (f) handleDiagramSelect(f.id); }}
-          onNoteCreate={async (t, pid) => { const n = await createNote(t, pid ? Number(pid) : null); if (n) handleNoteSelect(n.id); }}
-          onDrawingCreate={async (t, pid) => { const d = await createDrawing(t, pid ? Number(pid) : null); if (d) handleDrawingSelect(d.id); }}
-          onFlowchartCreate={async (t, pid) => { const f = await createFlowchart(t, pid ? Number(pid) : null); if (f) handleFlowchartSelect(f.id); }}
+          onDiagramCreate={async (n, pid) => { const f = await createDiagram(n, pid); if (f) { await fetchProjects(); handleDiagramSelect(f.id); } }}
+          onNoteCreate={async (t, pid) => { const n = await createNote(t, pid); if (n) { await fetchProjects(); handleNoteSelect(n.id); } }}
+          onDrawingCreate={async (t, pid) => { const d = await createDrawing(t, pid); if (d) { await fetchProjects(); handleDrawingSelect(d.id); } }}
+          onFlowchartCreate={async (t, pid) => { const f = await createFlowchart(t, pid); if (f) { await fetchProjects(); handleFlowchartSelect(f.id); } }}
           onProjectCreate={createProject} onProjectUpdate={updateProject} onProjectDelete={id => { deleteProject(id); fetchTrash(); }}
-          onDiagramUpdate={updateDiagram} onNoteUpdate={updateNote} onDrawingUpdate={updateDrawing} onFlowchartUpdate={updateFlowchart}
-          onDiagramDelete={id => { deleteDiagram(id); fetchTrash(); }} onNoteDelete={id => { deleteNote(id); fetchTrash(); }} onDrawingDelete={id => { deleteDrawing(id); fetchTrash(); }} onFlowchartDelete={id => { deleteFlowchart(id); fetchTrash(); }}
+          onDiagramUpdate={async (id, n, opts) => { await updateDiagram(id, n, opts); await fetchProjects(); }} 
+          onNoteUpdate={async (id, t, opts) => { await updateNote(id, t, opts); await fetchProjects(); }} 
+          onDrawingUpdate={async (id, t, opts) => { await updateDrawing(id, t, opts); await fetchProjects(); }} 
+          onFlowchartUpdate={async (id, t, opts) => { await updateFlowchart(id, t, opts); await fetchProjects(); }}
+          onDiagramDelete={async id => { await deleteDiagram(id); fetchTrash(); fetchProjects(); }} 
+          onNoteDelete={async id => { await deleteNote(id); fetchTrash(); fetchProjects(); }} 
+          onDrawingDelete={async id => { await deleteDrawing(id); fetchTrash(); fetchProjects(); }} 
+          onFlowchartDelete={async id => { await deleteFlowchart(id); fetchTrash(); fetchProjects(); }}
           onLogout={handleLogout}
-          onMoveDiagramToProject={moveDiagramToProject} onMoveNoteToProject={moveNoteToProject} onMoveDrawingToProject={moveDrawingToProject} onMoveFlowchartToProject={moveFlowchartToProject}
+          onMoveDiagramToProject={async (id, pid, opts) => { await moveDiagramToProject(id, pid, opts); await fetchProjects(); }} 
+          onMoveNoteToProject={async (id, pid, opts) => { await moveNoteToProject(id, pid, opts); await fetchProjects(); }} 
+          onMoveDrawingToProject={async (id, pid, opts) => { await moveDrawingToProject(id, pid, opts); await fetchProjects(); }} 
+          onMoveFlowchartToProject={async (id, pid, opts) => { await moveFlowchartToProject(id, pid, opts); await fetchProjects(); }}
           sidebarView={sidebarView} onViewChange={handleViewChange}
           hasMoreProjects={hasMoreProjects} hasMoreDiagrams={hasMoreDiagrams} hasMoreNotes={hasMoreNotes} hasMoreDrawings={hasMoreDrawings} hasMoreFlowcharts={hasMoreFlowcharts}
-          onLoadMoreProjects={() => fetchProjects(true, debouncedSearchQuery)} onLoadMoreDiagrams={() => fetchDiagrams(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
-          onLoadMoreNotes={() => fetchNotes(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)} 
+          onLoadMoreProjects={() => fetchProjects(true, searchQuery)} onLoadMoreDiagrams={() => fetchDiagrams(true, activeProjectId === null ? 'all' : activeProjectId, searchQuery)}
+          onLoadMoreNotes={() => fetchNotes(true, activeProjectId === null ? 'all' : activeProjectId, searchQuery)} 
           onNoteCopyMarkdown={async (id) => {
             const note = notes.find(n => n.id === id);
             if (note) await copyMarkdownToClipboard(note.content);
@@ -940,8 +1037,8 @@ function AppContent() {
             handleNoteSelect(id);
             setTimeout(() => setIsExportNoteModalOpen(true), 100);
           }}
-          onLoadMoreDrawings={() => fetchDrawings(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
-          onLoadMoreFlowcharts={() => fetchFlowcharts(true, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery)}
+          onLoadMoreDrawings={() => fetchDrawings(true, activeProjectId === null ? 'all' : activeProjectId, searchQuery)}
+          onLoadMoreFlowcharts={() => fetchFlowcharts(true, activeProjectId === null ? 'all' : activeProjectId, searchQuery)}
           searchQuery={searchQuery} onSearchChange={setSearchQuery} user={user} isOnline={isOnline} isInstallable={isInstallable} onInstall={installApp}
         />
       )}
@@ -1087,10 +1184,10 @@ function AppContent() {
             <TrashView 
               trashData={trashData} 
               restoreProject={async (id) => { await restoreProject(id); fetchTrash(); fetchProjects(); }} 
-              restoreDiagram={async (id) => { await restoreDiagram(id); fetchTrash(); fetchDiagrams(false, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery); }} 
-              restoreNote={async (id) => { await restoreNote(id); fetchTrash(); fetchNotes(false, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery); }} 
-              restoreDrawing={async (id) => { await restoreDrawing(id); fetchTrash(); fetchDrawings(false, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery); }} 
-              restoreFlowchart={async (id) => { await restoreFlowchart(id); fetchTrash(); fetchFlowcharts(false, activeProjectId === null ? 'all' : activeProjectId, debouncedSearchQuery); }} 
+              restoreDiagram={async (id) => { await restoreDiagram(id); fetchTrash(); await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreNote={async (id) => { await restoreNote(id); fetchTrash(); await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreDrawing={async (id) => { await restoreDrawing(id); fetchTrash(); await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreFlowchart={async (id) => { await restoreFlowchart(id); fetchTrash(); await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
               fetchTrash={fetchTrash} 
               handleProjectPermanentDelete={id => { setItemToDelete({ id, type: 'project' }); setIsPermanentDeleteConfirmOpen(true); }} 
               handleDiagramPermanentDelete={id => { setItemToDelete({ id, type: 'erd' }); setIsPermanentDeleteConfirmOpen(true); }} 
