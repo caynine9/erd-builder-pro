@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Folder, Plus, MoreHorizontal, Sparkles } from "lucide-react"
+import { Folder, Plus, MoreHorizontal, Sparkles, FileUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Project } from "../../../types"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SidebarGroupContent } from "@/components/ui/sidebar"
@@ -62,6 +63,7 @@ interface ProjectGroupProps {
   onLoadMoreFiles: () => void
   isFilesLoading: boolean
   searchQuery: string
+  onNoteImportMarkdown?: (projectId: number | string | null) => void
 }
 
 export function ProjectGroup({
@@ -96,7 +98,8 @@ export function ProjectGroup({
   hasMoreFiles,
   onLoadMoreFiles,
   isFilesLoading,
-  searchQuery
+  searchQuery,
+  onNoteImportMarkdown
 }: ProjectGroupProps) {
   const uncategorizedFiles = files.filter(f => !f.project_id);
 
@@ -130,7 +133,7 @@ export function ProjectGroup({
 
       <SidebarGroupLabel className="px-2">Workspaces</SidebarGroupLabel>
       <SidebarMenu>
-        {isProjectsLoading && (
+        {isProjectsLoading && projects.length === 0 && (
           <div className="space-y-2 px-2 py-2">
             {[1, 2].map(i => (
               <div key={i} className="flex items-center gap-2 px-2 py-1.5">
@@ -141,7 +144,7 @@ export function ProjectGroup({
           </div>
         )}
 
-        {!isProjectsLoading && projects.map((item) => (
+        {projects.map((item) => (
           <ProjectMenuItem 
             key={item.id}
             item={item}
@@ -167,6 +170,7 @@ export function ProjectGroup({
             setIsEditFileDialogOpen={setIsEditFileDialogOpen}
             setDeletingFile={setDeletingFile}
             setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
+            onNoteImportMarkdown={onNoteImportMarkdown}
           />
         ))}
 
@@ -200,6 +204,7 @@ export function ProjectGroup({
             setIsEditFileDialogOpen={setIsEditFileDialogOpen}
             setDeletingFile={setDeletingFile}
             setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
+            onNoteImportMarkdown={onNoteImportMarkdown}
             isUncategorized={true}
           />
         )}

@@ -1,6 +1,5 @@
 import * as React from "react"
-import { MoreHorizontal, Edit2, Trash2, ChevronRight } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { MoreHorizontal, Edit2, Trash2, ChevronRight, FileUp } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,14 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -57,6 +52,7 @@ interface ProjectMenuItemProps {
   setIsEditFileDialogOpen: (open: boolean) => void
   setDeletingFile: (file: any) => void
   setIsDeleteConfirmOpen: (open: boolean) => void
+  onNoteImportMarkdown?: (projectId: number | string | null) => void
   isUncategorized?: boolean
 }
 
@@ -83,13 +79,19 @@ export function ProjectMenuItem({
   setIsEditFileDialogOpen,
   setDeletingFile,
   setIsDeleteConfirmOpen,
+  onNoteImportMarkdown,
   isUncategorized
 }: ProjectMenuItemProps) {
   const [isOpen, setIsOpen] = React.useState(item.isActive)
+  const isManualToggle = React.useRef(false)
 
   // Sync open state with active project
   React.useEffect(() => {
-    if (item.isActive) setIsOpen(true)
+    if (item.isActive && !isManualToggle.current) {
+      setIsOpen(true)
+    }
+    // Reset the manual toggle flag after sync is evaluated
+    isManualToggle.current = false
   }, [item.isActive])
 
   return (
@@ -98,33 +100,33 @@ export function ProjectMenuItem({
       onOpenChange={setIsOpen}
       className="group/collapsible"
     >
-      <SidebarMenuItem className={cn(!isOnline && "opacity-50 cursor-not-allowed")}>
-        <CollapsibleTrigger 
-          render={
-            <SidebarMenuButton 
-              onClick={() => isOnline && onProjectSelect(item.id)} 
-              isActive={item.isActive} 
-              className={cn("cursor-pointer", !isOnline && "pointer-events-none")}
-            >
-              <ChevronRight className={cn(
-                "size-4 transition-transform duration-200",
-                isOpen && "rotate-90"
-              )} />
-              <item.icon className="size-4" />
-              <TruncatedTooltip content={item.name}>
-                <span className="flex-1 min-w-0 truncate font-medium">{item.name}</span>
-              </TruncatedTooltip>
-            </SidebarMenuButton>
-          }
-        />
-        
+      <SidebarMenuItem className={cn("relative group/menu-item", !isOnline && "opacity-50 cursor-not-allowed")}>
+        <SidebarMenuButton 
+          onClick={() => {
+            if (isOnline) {
+              isManualToggle.current = true
+              onProjectSelect(item.id)
+              setIsOpen(!isOpen)
+            }
+          }} 
+          isActive={item.isActive} 
+          className={cn("group/btn cursor-pointer pr-8", !isOnline && "pointer-events-none")}
+        >
+          <ChevronRight className={cn(
+            "size-4 transition-transform duration-200 text-muted-foreground",
+            isOpen && "rotate-90"
+          )} />
+          <TruncatedTooltip content={item.name}>
+            <span className="flex-1 min-w-0 truncate font-medium">{item.name}</span>
+          </TruncatedTooltip>
+        </SidebarMenuButton>
+
         {!isUncategorized && (
           <DropdownMenu>
             <DropdownMenuTrigger render={
               <SidebarMenuAction 
-                showOnHover={false} 
                 className={cn(
-                  "cursor-pointer opacity-100 mr-1", 
+                  "cursor-pointer", 
                   !isOnline && "pointer-events-none"
                 )}
               >
@@ -144,7 +146,7 @@ export function ProjectMenuItem({
                 setIsProjectDialogOpen(true)
               }}>
                 <Edit2 className="mr-2 size-4 text-muted-foreground" />
-                <span>Rename Project</span>
+                <span>Edit</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
@@ -156,20 +158,23 @@ export function ProjectMenuItem({
                 }}
               >
                 <Trash2 className="mr-2 size-4" />
-                <span>Delete Project</span>
+                <span>Delete</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
 
+        {isUncategorized && (
+          <SidebarMenuAction className="pointer-events-none opacity-0" />
+        )}
+
         <CollapsibleContent>
-          <div className="ml-3.5 pl-3.5 border-l border-border/50 space-y-0.5 mt-0.5 mb-1">
+          <SidebarMenuSub className="ml-3.5 mr-0 pl-2.5 pr-0">
             {files.map(file => (
               <FileMenuItem 
                 key={file.id}
                 item={file}
                 type={sidebarView as any}
-                icon={FileIcon}
                 isActive={activeFileId === file.id && view === sidebarView}
                 isOnline={isOnline}
                 onSelect={onFileSelect}
@@ -180,7 +185,7 @@ export function ProjectMenuItem({
                 setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
               />
             ))}
-          </div>
+          </SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
     </Collapsible>
