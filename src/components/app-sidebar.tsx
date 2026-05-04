@@ -69,15 +69,15 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   onNoteDelete: (id: number | string) => void;
   onDrawingDelete: (id: number | string) => void;
   onFlowchartDelete: (id: number | string) => void;
-  onDiagramUpdate: (id: number | string, name: string) => void;
-  onNoteUpdate: (id: number | string, title: string) => void;
-  onDrawingUpdate: (id: number | string, title: string) => void;
-  onFlowchartUpdate: (id: number | string, title: string) => void;
+  onDiagramUpdate: (id: number | string, name: string, options?: { silent?: boolean }) => void;
+  onNoteUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void;
+  onDrawingUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void;
+  onFlowchartUpdate: (id: number | string, title: string, options?: { silent?: boolean }) => void;
   onLogout: () => void;
-  onMoveDiagramToProject: (diagramId: number | string, projectId: number | string | null) => void;
-  onMoveNoteToProject: (noteId: number | string, projectId: number | string | null) => void;
-  onMoveDrawingToProject: (drawingId: number | string, projectId: number | string | null) => void;
-  onMoveFlowchartToProject: (flowchartId: number | string, projectId: number | string | null) => void;
+  onMoveDiagramToProject: (diagramId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void;
+  onMoveNoteToProject: (noteId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void;
+  onMoveDrawingToProject: (drawingId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void;
+  onMoveFlowchartToProject: (flowchartId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => void;
 
   hasMoreProjects?: boolean;
   hasMoreDiagrams?: boolean;
@@ -102,6 +102,12 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   isDrawingsLoading?: boolean;
   isFlowchartsLoading?: boolean;
   isTrashLoading?: boolean;
+  uncategorized: {
+    diagrams: Diagram[];
+    notes: Note[];
+    drawings: Drawing[];
+    flowcharts: Flowchart[];
+  };
 }
 
 export function AppSidebar({
@@ -110,6 +116,7 @@ export function AppSidebar({
   drawings,
   flowcharts,
   projects,
+  uncategorized,
   activeDiagramId,
   activeNoteId,
   activeDrawingId,
@@ -238,6 +245,7 @@ export function AppSidebar({
 
   // Projects navigation
   const navProjects = projects.filter(p => !p.is_deleted).map(project => ({
+    ...project,
     id: project.id,
     name: project.name,
     url: "#",
@@ -248,6 +256,11 @@ export function AppSidebar({
     notes_count: project.notes_count,
     drawings_count: project.drawings_count,
     flowcharts_count: project.flowcharts_count,
+    // Ensure nested files are passed through
+    diagrams: project.diagrams || [],
+    notes: project.notes || [],
+    drawings: project.drawings || [],
+    flowcharts: project.flowcharts || [],
   }))
 
   return (
@@ -352,6 +365,7 @@ export function AppSidebar({
           isNotesLoading={isNotesLoading}
           isDrawingsLoading={isDrawingsLoading}
           isFlowchartsLoading={isFlowchartsLoading}
+          uncategorized={uncategorized}
         />
       </SidebarContent>
       <SidebarFooter>

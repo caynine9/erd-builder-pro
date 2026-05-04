@@ -4,7 +4,7 @@ import { Note, DraftType } from '../types';
 import { localPersistence } from '../lib/localPersistence';
 
 export function useNotes(isGuest: boolean = false) {
-  const [notes, setNotesList] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [activeNoteId, setActiveNoteId] = useState<number | string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isItemLoading, setIsItemLoading] = useState(false);
@@ -26,7 +26,7 @@ export function useNotes(isGuest: boolean = false) {
       if (searchQuery) {
         filtered = filtered.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()));
       }
-      setNotesList(filtered);
+      setNotes(filtered);
       setNotesTotal(filtered.length);
       setHasMoreNotes(false);
       return;
@@ -46,9 +46,9 @@ export function useNotes(isGuest: boolean = false) {
         
         const notesListData = Array.isArray(data) ? data : [];
         if (isLoadMore) {
-          setNotesList(prev => [...prev, ...notesListData]);
+          setNotes(prev => [...prev, ...notesListData]);
         } else {
-          setNotesList(notesListData);
+          setNotes(notesListData);
         }
         setNotesTotal(total);
         setHasMoreNotes((notesListData.length + offset) < total);
@@ -64,12 +64,14 @@ export function useNotes(isGuest: boolean = false) {
   }, [isGuest]); 
 
   const createNote = async (title: string, projectId?: number | string | null, content?: string) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const newNote: Note = {
         id: Math.random().toString(36).substr(2, 9),
         title,
         content: content || '',
-        project_id: projectId || null,
+        project_id: effectiveProjectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -77,7 +79,7 @@ export function useNotes(isGuest: boolean = false) {
       // @ts-ignore
       newNote.type = 'notes';
       await localPersistence.saveResource(newNote);
-      setNotesList(prev => [newNote, ...prev]);
+      setNotes(prev => [newNote, ...prev]);
       toast.success('Note created locally');
       return newNote;
     }
@@ -86,11 +88,11 @@ export function useNotes(isGuest: boolean = false) {
       const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, project_id: projectId, content: content || "" }),
+        body: JSON.stringify({ title, project_id: effectiveProjectId, content: content || "" }),
       });
       if (res.ok) {
         const newNote = await res.json();
-        setNotesList(prev => [newNote, ...prev]);
+        setNotes(prev => [newNote, ...prev]);
         toast.success('Note created successfully');
         return newNote;
       }
@@ -129,7 +131,7 @@ export function useNotes(isGuest: boolean = false) {
         note.title = title;
         note.updated_at = new Date().toISOString();
         await localPersistence.saveResource(note);
-        setNotesList(prev => prev.map(n => n.id === id ? { ...n, title } : n));
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, title } : n));
         if (!options?.silent) toast.success('Note renamed locally');
       }
       return;
@@ -142,7 +144,7 @@ export function useNotes(isGuest: boolean = false) {
         body: JSON.stringify({ title }),
       });
       if (res.ok) {
-        setNotesList(prev => prev.map(n => n.id === id ? { ...n, title } : n));
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, title } : n));
         if (!options?.silent) toast.success('Note renamed successfully');
       }
     } catch (err) {}
@@ -155,7 +157,7 @@ export function useNotes(isGuest: boolean = false) {
         note.is_deleted = true;
         note.deleted_at = new Date().toISOString();
         await localPersistence.saveResource(note);
-        setNotesList(prev => prev.map(n => n.id === id ? { ...n, is_deleted: true } : n));
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, is_deleted: true } : n));
         if (activeNoteId === id) setActiveNoteId(null);
         toast.success('Note moved to local trash');
       }
@@ -165,7 +167,7 @@ export function useNotes(isGuest: boolean = false) {
     try {
       const res = await fetch(`/api/notes/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        setNotesList(prev => prev.map(n => n.id === id ? { ...n, is_deleted: true } : n));
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, is_deleted: true } : n));
         if (activeNoteId === id) setActiveNoteId(null);
         toast.success('Note moved to trash');
       }
@@ -173,12 +175,14 @@ export function useNotes(isGuest: boolean = false) {
   };
 
   const moveNoteToProject = async (noteId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const note = await localPersistence.getResource(noteId);
       if (note) {
-        note.project_id = projectId;
+        note.project_id = effectiveProjectId;
         await localPersistence.saveResource(note);
-        setNotesList(prev => prev.map(n => n.id === noteId ? { ...n, project_id: projectId } : n));
+        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, project_id: effectiveProjectId } : n));
         if (!options?.silent) toast.success('Note moved to project locally');
       }
       return true;
@@ -188,10 +192,10 @@ export function useNotes(isGuest: boolean = false) {
       const res = await fetch(`/api/notes/${noteId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId }),
+        body: JSON.stringify({ project_id: effectiveProjectId }),
       });
       if (res.ok) {
-        setNotesList(prev => prev.map(n => n.id === noteId ? { ...n, project_id: projectId } : n));
+        setNotes(prev => prev.map(n => n.id === noteId ? { ...n, project_id: effectiveProjectId } : n));
         if (!options?.silent) toast.success('Note moved to project');
         return true;
       }
@@ -230,7 +234,7 @@ export function useNotes(isGuest: boolean = false) {
         note.is_deleted = false;
         note.deleted_at = undefined;
         await localPersistence.saveResource(note);
-        fetchNotes();
+        setNotes(prev => prev.map(n => String(n.id) === String(id) ? { ...n, is_deleted: false } : n));
         toast.success('Note restored locally');
       }
       return;
@@ -239,7 +243,7 @@ export function useNotes(isGuest: boolean = false) {
     try {
       const res = await fetch(`/api/notes/${id}/restore`, { method: 'POST' });
       if (res.ok) {
-        fetchNotes();
+        setNotes(prev => prev.map(n => String(n.id) === String(id) ? { ...n, is_deleted: false } : n));
         toast.success('Note restored successfully');
       }
     } catch (err) {}
@@ -273,7 +277,7 @@ export function useNotes(isGuest: boolean = false) {
           const res = await fetch(`/api/notes/${id}`);
           if (res.ok) {
             const fullNote = await res.json();
-            setNotesList(prev => prev.map(n => n.id === id ? { ...n, content: fullNote.content } : n));
+            setNotes(prev => prev.map(n => n.id === id ? { ...n, content: fullNote.content } : n));
           }
         } catch (e) {
           console.error("Failed to lazy load note content:", e);
@@ -284,7 +288,7 @@ export function useNotes(isGuest: boolean = false) {
       if (draft && draft.sync_pending) {
         try {
           const parsed = JSON.parse(draft.data);
-          setNotesList(prev => prev.map(n => n.id === id ? { ...n, content: parsed.content } : n));
+          setNotes(prev => prev.map(n => n.id === id ? { ...n, content: parsed.content } : n));
           toast.info("Loaded unsynced local note draft");
         } catch (e) {}
       }
@@ -296,7 +300,7 @@ export function useNotes(isGuest: boolean = false) {
 
   return {
     notes,
-    setNotesList,
+    setNotes,
     activeNoteId,
     setActiveNoteId,
     fetchNotes,

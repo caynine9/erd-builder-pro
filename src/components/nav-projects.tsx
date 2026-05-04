@@ -66,6 +66,7 @@ export function NavProjects({
   isNotesLoading,
   isDrawingsLoading,
   isFlowchartsLoading,
+  uncategorized,
 }: {
   projects: any[]
   activeProjectId: number | string | null
@@ -124,6 +125,12 @@ export function NavProjects({
   isNotesLoading?: boolean
   isDrawingsLoading?: boolean
   isFlowchartsLoading?: boolean
+  uncategorized: {
+    diagrams: Diagram[];
+    notes: Note[];
+    drawings: Drawing[];
+    flowcharts: Flowchart[];
+  };
 }) {
   const { isMobile } = useSidebar()
   
@@ -225,13 +232,27 @@ export function NavProjects({
   }
 
   const getFilesForCurrentView = () => {
-    switch (sidebarView) {
-      case 'erd': return diagrams || []
-      case 'notes': return notes || []
-      case 'drawings': return drawings || []
-      case 'flowchart': return flowcharts || []
-      default: return []
-    }
+    const pFiles = projects.flatMap(p => {
+      switch (sidebarView) {
+        case 'erd': return p.diagrams || []
+        case 'notes': return p.notes || []
+        case 'drawings': return p.drawings || []
+        case 'flowchart': return p.flowcharts || []
+        default: return []
+      }
+    });
+
+    const uFiles = (() => {
+      switch (sidebarView) {
+        case 'erd': return uncategorized.diagrams || []
+        case 'notes': return uncategorized.notes || []
+        case 'drawings': return uncategorized.drawings || []
+        case 'flowchart': return uncategorized.flowcharts || []
+        default: return []
+      }
+    })();
+
+    return [...pFiles, ...uFiles];
   }
 
   const getActiveFileId = () => {
@@ -328,6 +349,7 @@ export function NavProjects({
           (sidebarView === 'flowchart' && !!isFlowchartsLoading)
         }
         searchQuery={searchQuery}
+        uncategorized={uncategorized}
       />
 
       <SidebarModals 

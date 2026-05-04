@@ -78,12 +78,14 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     }
   }, [isGuest]); 
 
-  const createDiagram = async (name: string, projectId?: number | null) => {
+  const createDiagram = async (name: string, projectId?: number | string | null) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const newDiagram: Diagram = {
         id: Math.random().toString(36).substr(2, 9) as any,
         name,
-        project_id: projectId || null,
+        project_id: effectiveProjectId || null,
         is_deleted: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -102,7 +104,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
       const res = await fetch('/api/diagrams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, project_id: projectId }),
+        body: JSON.stringify({ name, project_id: effectiveProjectId }),
       });
       if (res.ok) {
         const newDiagram = await res.json();
@@ -186,7 +188,7 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
         diagram.is_deleted = false;
         diagram.deleted_at = undefined;
         await localPersistence.saveResource(diagram);
-        fetchDiagrams();
+        setDiagrams(prev => prev.map(d => String(d.id) === String(id) ? { ...d, is_deleted: false } : d));
         toast.success('Diagram restored locally');
       }
       return;
@@ -195,7 +197,8 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     try {
       const res = await fetch(`/api/diagrams/${id}/restore`, { method: 'POST' });
       if (res.ok) {
-        fetchDiagrams();
+        // Optimistically update the state instead of full fetch to avoid losing other project data
+        setDiagrams(prev => prev.map(d => String(d.id) === String(id) ? { ...d, is_deleted: false } : d));
         toast.success('Diagram restored successfully');
       } else {
         toast.error('Failed to restore diagram');
@@ -225,13 +228,15 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
     }
   };
 
-  const moveDiagramToProject = async (diagramId: number | string, projectId: number | null, options?: { silent?: boolean }) => {
+  const moveDiagramToProject = async (diagramId: number | string, projectId: number | string | null, options?: { silent?: boolean }) => {
+    const effectiveProjectId = (projectId === 'none' || projectId === 'uncategorized') ? null : projectId;
+
     if (isGuest) {
       const diagram = await localPersistence.getResource(diagramId);
       if (diagram) {
-        diagram.project_id = projectId;
+        diagram.project_id = effectiveProjectId;
         await localPersistence.saveResource(diagram);
-        setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: projectId } : f));
+        setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: effectiveProjectId } : f));
         if (!options?.silent) toast.success('Diagram moved to project locally');
         return true;
       }
@@ -242,10 +247,10 @@ export function useDiagrams(isAuthenticated: boolean | null, view: 'erd' | 'diag
       const res = await fetch(`/api/diagrams/${diagramId}/project`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId }),
+        body: JSON.stringify({ project_id: effectiveProjectId }),
       });
       if (res.ok) {
-        setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: projectId } : f));
+        setDiagrams(prev => prev.map(f => f.id === diagramId ? { ...f, project_id: effectiveProjectId } : f));
         if (!options?.silent) toast.success('Diagram moved to project');
         return true;
       } else {
