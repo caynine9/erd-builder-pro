@@ -8,22 +8,12 @@ import {
   OnNodesChange,
   OnEdgesChange,
   Node,
-  Edge
+  Edge,
+  MarkerType
 } from '@xyflow/react';
 import { Plus, Download, ChevronDown, Database, Undo2, Redo2, Image as ImageIcon, FileCode, Upload, FileText, Loader2 } from 'lucide-react';
 
-
-
 import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuGroup
-} from "@/components/ui/dropdown-menu";
 import EntityNode from '../EntityNode';
 import { Entity } from '@/types';
 
@@ -99,16 +89,24 @@ export const ERDView = React.memo(({
   }
 
   const styledEdges = React.useMemo(() => {
-    if (!selectedNodeId) return edges;
     return edges.map(edge => {
-      const isConnected = edge.source === selectedNodeId || edge.target === selectedNodeId;
-      if (isConnected) {
+      const baseEdge = {
+        ...edge,
+        type: 'smoothstep', // Force curved bezier style
+        markerEnd: {
+          type: MarkerType.Arrow,
+          width: 15,
+          height: 15,
+        },
+      };
+      
+      if (selectedNodeId && (edge.source === selectedNodeId || edge.target === selectedNodeId)) {
         return {
-          ...edge,
+          ...baseEdge,
           className: `${edge.className || ''} edge-animated-active`,
         };
       }
-      return edge;
+      return baseEdge;
     });
   }, [edges, selectedNodeId]);
 
@@ -184,6 +182,11 @@ export const ERDView = React.memo(({
           defaultEdgeOptions={{
             type: 'smoothstep',
             animated: false,
+            markerEnd: {
+              type: MarkerType.Arrow,
+              width: 15,
+              height: 15,
+            },
           }}
         >
 
