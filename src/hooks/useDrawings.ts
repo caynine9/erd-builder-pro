@@ -270,7 +270,10 @@ export function useDrawings(isGuest: boolean = false) {
         const res = await fetch(`/api/drawings/${id}`);
         if (res.ok) {
           const d = await res.json();
-          if (!d.is_deleted) setActiveDrawingId(id);
+          if (!d.is_deleted) {
+            setDrawings(prev => prev.map(existing => existing.id === id ? { ...existing, data: d.data } : existing));
+            setActiveDrawingId(id);
+          }
         }
       }
     } finally {
