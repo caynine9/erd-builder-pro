@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS diagrams (
 -- Entities Table
 CREATE TABLE IF NOT EXISTS entities (
   id TEXT PRIMARY KEY,
-  file_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
+  diagram_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   x DOUBLE PRECISION DEFAULT 0,
   y DOUBLE PRECISION DEFAULT 0,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS columns (
 -- Relationships Table
 CREATE TABLE IF NOT EXISTS relationships (
   id TEXT PRIMARY KEY,
-  file_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
+  diagram_id BIGINT REFERENCES diagrams(id) ON DELETE CASCADE,
   source_entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
   target_entity_id TEXT REFERENCES entities(id) ON DELETE CASCADE,
   source_column_id TEXT,
@@ -339,15 +339,15 @@ CREATE POLICY "Users can view their own entity changes" ON entity_changes FOR SE
 
 -- Entities Policies
 ALTER TABLE entities ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can view entities of public diagrams" ON entities FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.file_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
-CREATE POLICY "Users can manage entities in their own diagrams" ON entities FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.file_id AND diagrams.user_id = auth.uid()));
+CREATE POLICY "Anyone can view entities of public diagrams" ON entities FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.diagram_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage entities in their own diagrams" ON entities FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = entities.diagram_id AND diagrams.user_id = auth.uid()));
 
 -- Columns Policies
 ALTER TABLE columns ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can view columns of public diagrams" ON columns FOR SELECT USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.file_id WHERE entities.id = columns.entity_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
-CREATE POLICY "Users can manage columns in their own diagrams" ON columns FOR ALL USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.file_id WHERE entities.id = columns.entity_id AND diagrams.user_id = auth.uid()));
+CREATE POLICY "Anyone can view columns of public diagrams" ON columns FOR SELECT USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.diagram_id WHERE entities.id = columns.entity_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage columns in their own diagrams" ON columns FOR ALL USING (EXISTS (SELECT 1 FROM entities JOIN diagrams ON diagrams.id = entities.diagram_id WHERE entities.id = columns.entity_id AND diagrams.user_id = auth.uid()));
 
 -- Relationships Policies
 ALTER TABLE relationships ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Anyone can view relationships of public diagrams" ON relationships FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.file_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
-CREATE POLICY "Users can manage relationships in their own diagrams" ON relationships FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.file_id AND diagrams.user_id = auth.uid()));
+CREATE POLICY "Anyone can view relationships of public diagrams" ON relationships FOR SELECT USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.diagram_id AND diagrams.is_public = true AND (diagrams.expiry_date IS NULL OR diagrams.expiry_date > NOW())));
+CREATE POLICY "Users can manage relationships in their own diagrams" ON relationships FOR ALL USING (EXISTS (SELECT 1 FROM diagrams WHERE diagrams.id = relationships.diagram_id AND diagrams.user_id = auth.uid()));

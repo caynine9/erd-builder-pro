@@ -119,34 +119,36 @@ export function ProjectGroup({
   }, [uncategorized, sidebarView]);
 
   return (
-    <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupContent className="px-2 pb-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger render={
-            <SidebarMenuButton
-              disabled={!isOnline}
-              className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground group-data-[state=open]:bg-primary/90"
-            >
-              <div className="flex items-center justify-center rounded-full bg-primary-foreground text-primary mr-2 shrink-0">
-                <Plus strokeWidth={3} />
-              </div>
-              <span>Quick Create</span>
-            </SidebarMenuButton>
-          } />
-          <DropdownMenuContent className="w-56" align="start" side="bottom" sideOffset={8}>
-            <DropdownMenuItem onClick={onProjectCreateClick} className="cursor-pointer py-2">
-              <Folder className="mr-2 size-4 text-muted-foreground" />
-              <span className="font-medium">Create Workspace</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onAddClick} className="cursor-pointer py-2">
-              <Plus className="mr-2 size-4 text-muted-foreground" />
-              <span className="font-medium">Create File</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarGroupContent>
+    <SidebarGroup className="group-data-[collapsible=icon]:hidden pt-0">
+      <div className="sticky top-0 z-20 bg-sidebar pt-4 pb-2">
+        <SidebarGroupContent className="px-2 pb-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger render={
+              <SidebarMenuButton
+                disabled={!isOnline}
+                className="min-w-8 bg-primary text-primary-foreground duration-200 ease-linear hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground group-data-[state=open]:bg-primary/90"
+              >
+                <div className="flex items-center justify-center rounded-full bg-primary-foreground text-primary mr-2 shrink-0">
+                  <Plus strokeWidth={3} />
+                </div>
+                <span>Quick Create</span>
+              </SidebarMenuButton>
+            } />
+            <DropdownMenuContent className="w-56" align="start" side="bottom" sideOffset={8}>
+              <DropdownMenuItem onClick={onProjectCreateClick} className="cursor-pointer py-2">
+                <Folder className="mr-2 size-4 text-muted-foreground" />
+                <span className="font-medium">Create Workspace</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onAddClick} className="cursor-pointer py-2">
+                <Plus className="mr-2 size-4 text-muted-foreground" />
+                <span className="font-medium">Create File</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarGroupContent>
 
-      <SidebarGroupLabel className="px-2">Workspaces</SidebarGroupLabel>
+        <SidebarGroupLabel className="px-2">Workspaces</SidebarGroupLabel>
+      </div>
       <SidebarMenu>
         {isProjectsLoading && projects.length === 0 && (
           <div className="space-y-2 px-2 py-2">

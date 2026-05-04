@@ -1007,7 +1007,9 @@ function AppContent() {
           onNoteCreate={async (t, pid) => { const n = await createNote(t, pid); if (n) { await fetchProjects(); handleNoteSelect(n.id); } }}
           onDrawingCreate={async (t, pid) => { const d = await createDrawing(t, pid); if (d) { await fetchProjects(); handleDrawingSelect(d.id); } }}
           onFlowchartCreate={async (t, pid) => { const f = await createFlowchart(t, pid); if (f) { await fetchProjects(); handleFlowchartSelect(f.id); } }}
-          onProjectCreate={createProject} onProjectUpdate={updateProject} onProjectDelete={id => { deleteProject(id); fetchTrash(); }}
+          onProjectCreate={async (n) => { await createProject(n); await fetchProjects(); }} 
+          onProjectUpdate={async (id, n) => { await updateProject(id, n); await fetchProjects(); }} 
+          onProjectDelete={async id => { await deleteProject(id); fetchTrash(); await fetchProjects(); }}
           onDiagramUpdate={async (id, n, opts) => { await updateDiagram(id, n, opts); await fetchProjects(); }} 
           onNoteUpdate={async (id, t, opts) => { await updateNote(id, t, opts); await fetchProjects(); }} 
           onDrawingUpdate={async (id, t, opts) => { await updateDrawing(id, t, opts); await fetchProjects(); }} 
@@ -1183,11 +1185,11 @@ function AppContent() {
           {view === 'trash' && (
             <TrashView 
               trashData={trashData} 
-              restoreProject={async (id) => { await restoreProject(id); fetchTrash(); fetchProjects(); }} 
-              restoreDiagram={async (id) => { await restoreDiagram(id); fetchTrash(); await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreNote={async (id) => { await restoreNote(id); fetchTrash(); await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreDrawing={async (id) => { await restoreDrawing(id); fetchTrash(); await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreFlowchart={async (id) => { await restoreFlowchart(id); fetchTrash(); await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreProject={async (id) => { await restoreProject(id); fetchTrash(); await fetchProjects(); }} 
+              restoreDiagram={async (id) => { await restoreDiagram(id); fetchTrash(); await fetchProjects(); await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreNote={async (id) => { await restoreNote(id); fetchTrash(); await fetchProjects(); await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreDrawing={async (id) => { await restoreDrawing(id); fetchTrash(); await fetchProjects(); await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
+              restoreFlowchart={async (id) => { await restoreFlowchart(id); fetchTrash(); await fetchProjects(); await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
               fetchTrash={fetchTrash} 
               handleProjectPermanentDelete={id => { setItemToDelete({ id, type: 'project' }); setIsPermanentDeleteConfirmOpen(true); }} 
               handleDiagramPermanentDelete={id => { setItemToDelete({ id, type: 'erd' }); setIsPermanentDeleteConfirmOpen(true); }} 
@@ -1241,16 +1243,16 @@ function AppContent() {
 
         {/* Move to Trash Confirmation Alert */}
         <MoveToTrashAlert
-  isOpen={isMoveToTrashAlertOpen}
-  onOpenChange={setIsMoveToTrashAlertOpen}
-  activeDocument={activeDocument}
-  view={view}
-  deleteDiagram={deleteDiagram}
-  deleteNote={deleteNote}
-  deleteDrawing={deleteDrawing}
-  deleteFlowchart={deleteFlowchart}
-  fetchTrash={fetchTrash}
-/>
+          isOpen={isMoveToTrashAlertOpen}
+          onOpenChange={setIsMoveToTrashAlertOpen}
+          activeDocument={activeDocument}
+          view={view}
+          deleteDiagram={deleteDiagram}
+          deleteNote={deleteNote}
+          deleteDrawing={deleteDrawing}
+          deleteFlowchart={deleteFlowchart}
+          fetchTrash={fetchTrash}
+        />
 
 
         {/* Relationship Properties Modal */}

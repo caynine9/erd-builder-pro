@@ -15,31 +15,66 @@ router.get("/", authenticate, async (req: ExpressRequest, res: ExpressResponse) 
     .from("projects")
     .select(`
       *,
-      diagrams(id, name, updated_at, is_deleted, project_id),
-      notes(id, title, updated_at, is_deleted, project_id),
-      drawings(id, title, updated_at, is_deleted, project_id),
-      flowcharts(id, title, updated_at, is_deleted, project_id)
+      diagrams(id, name, updated_at, created_at, is_deleted, project_id),
+      notes(id, title, updated_at, created_at, is_deleted, project_id),
+      drawings(id, title, updated_at, created_at, is_deleted, project_id),
+      flowcharts(id, title, updated_at, created_at, is_deleted, project_id)
     `, { count: 'exact' })
     .eq("is_deleted", false)
     .eq("user_id", (req as any).user.id);
 
   if (q && q.trim()) {
-    query = query.ilike("name", `%${q.trim()}%`);
+    const searchTerm = `%${q.trim()}%`;
+    const userId = (req as any).user.id;
+    
+    // Find project IDs that have matching children
+    const [dMatches, nMatches, drMatches, fMatches] = await Promise.all([
+      supabase.from("diagrams").select("project_id").ilike("name", searchTerm).eq("user_id", userId).not("project_id", "is", null).eq("is_deleted", false),
+      supabase.from("notes").select("project_id").ilike("title", searchTerm).eq("user_id", userId).not("project_id", "is", null).eq("is_deleted", false),
+      supabase.from("drawings").select("project_id").ilike("title", searchTerm).eq("user_id", userId).not("project_id", "is", null).eq("is_deleted", false),
+      supabase.from("flowcharts").select("project_id").ilike("title", searchTerm).eq("user_id", userId).not("project_id", "is", null).eq("is_deleted", false),
+    ]);
+
+    const matchingProjectIds = new Set([
+      ...(dMatches.data?.map(m => m.project_id) || []),
+      ...(nMatches.data?.map(m => m.project_id) || []),
+      ...(drMatches.data?.map(m => m.project_id) || []),
+      ...(fMatches.data?.map(m => m.project_id) || []),
+    ]);
+
+    if (matchingProjectIds.size > 0) {
+      query = query.or(`name.ilike.${searchTerm},id.in.(${Array.from(matchingProjectIds).join(",")})`);
+    } else {
+      query = query.ilike("name", searchTerm);
+    }
   }
 
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
+    .order("created_at", { foreignTable: "diagrams", ascending: false })
+    .order("created_at", { foreignTable: "notes", ascending: false })
+    .order("created_at", { foreignTable: "drawings", ascending: false })
+    .order("created_at", { foreignTable: "flowcharts", ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) return handleError(res, error, "Supabase error fetching projects");
   
-  // Filter out deleted items from the nested arrays (Supabase filter on joins can be tricky, so we do it here)
+  const searchLower = q?.trim().toLowerCase();
+
+  // Filter out deleted items and apply in-memory search filter for nested items
   const projectsWithFiles = (data || []).map((project: any) => {
-    const diagrams = (project.diagrams || []).filter((f: any) => !f.is_deleted);
-    const notes = (project.notes || []).filter((f: any) => !f.is_deleted);
-    const drawings = (project.drawings || []).filter((f: any) => !f.is_deleted);
-    const flowcharts = (project.flowcharts || []).filter((f: any) => !f.is_deleted);
+    let diagrams = (project.diagrams || []).filter((f: any) => !f.is_deleted);
+    let notes = (project.notes || []).filter((f: any) => !f.is_deleted);
+    let drawings = (project.drawings || []).filter((f: any) => !f.is_deleted);
+    let flowcharts = (project.flowcharts || []).filter((f: any) => !f.is_deleted);
     
+    if (searchLower) {
+      diagrams = diagrams.filter((f: any) => f.name.toLowerCase().includes(searchLower));
+      notes = notes.filter((f: any) => f.title.toLowerCase().includes(searchLower));
+      drawings = drawings.filter((f: any) => f.title.toLowerCase().includes(searchLower));
+      flowcharts = flowcharts.filter((f: any) => f.title.toLowerCase().includes(searchLower));
+    }
+
     return {
       ...project,
       diagrams,
@@ -52,11 +87,23 @@ router.get("/", authenticate, async (req: ExpressRequest, res: ExpressResponse) 
   
   // Also fetch Uncategorized files (project_id is null)
   const userId = (req as any).user.id;
+  let uDQuery = supabase.from("diagrams").select("id, name, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId);
+  let uNQuery = supabase.from("notes").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId);
+  let uDrQuery = supabase.from("drawings").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId);
+  let uFQuery = supabase.from("flowcharts").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId);
+
+  if (searchLower) {
+    uDQuery = uDQuery.ilike("name", `%${searchLower}%`);
+    uNQuery = uNQuery.ilike("title", `%${searchLower}%`);
+    uDrQuery = uDrQuery.ilike("title", `%${searchLower}%`);
+    uFQuery = uFQuery.ilike("title", `%${searchLower}%`);
+  }
+
   const [uDiagrams, uNotes, uDrawings, uFlowcharts] = await Promise.all([
-    supabase.from("diagrams").select("id, name, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
-    supabase.from("notes").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
-    supabase.from("drawings").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
-    supabase.from("flowcharts").select("id, title, updated_at, is_deleted, project_id").is("project_id", null).eq("is_deleted", false).eq("user_id", userId),
+    uDQuery.order("created_at", { ascending: false }),
+    uNQuery.order("created_at", { ascending: false }),
+    uDrQuery.order("created_at", { ascending: false }),
+    uFQuery.order("created_at", { ascending: false }),
   ]);
   
   res.json({ 
@@ -157,13 +204,13 @@ router.delete("/:id/permanent", authenticate, async (req: ExpressRequest, res: E
     const diagramIds = diagrams?.map(f => f.id) || [];
 
     if (diagramIds.length > 0) {
-      await supabase.from("relationships").delete().in("file_id", diagramIds);
-      const { data: entities } = await supabase.from("entities").select("id").in("file_id", diagramIds);
+      await supabase.from("relationships").delete().in("diagram_id", diagramIds);
+      const { data: entities } = await supabase.from("entities").select("id").in("diagram_id", diagramIds);
       const entityIds = entities?.map(e => e.id) || [];
       if (entityIds.length > 0) {
         await supabase.from("columns").delete().in("entity_id", entityIds);
       }
-      await supabase.from("entities").delete().in("file_id", diagramIds);
+      await supabase.from("entities").delete().in("diagram_id", diagramIds);
       await supabase.from("diagrams").delete().in("id", diagramIds);
     }
     
