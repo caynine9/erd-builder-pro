@@ -15,13 +15,44 @@ export function useProjects(isGuest: boolean = false) {
   // Keep ref in sync
   projectsRef.current = projects;
 
+  const [uncategorized, setUncategorized] = useState<{
+    diagrams: any[];
+    notes: any[];
+    drawings: any[];
+    flowcharts: any[];
+  }>({ diagrams: [], notes: [], drawings: [], flowcharts: [] });
+
   const fetchProjects = useCallback(async (isLoadMore = false, searchQuery = '') => {
     if (isGuest) {
-      const localProjects = await localPersistence.getAllResources('project');
-      let filtered = localProjects.filter(p => !p.is_deleted);
-      if (searchQuery) filtered = filtered.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      setProjects(filtered);
-      setProjectsTotal(filtered.length);
+      const [localProjects, uDiagrams, uNotes, uDrawings, uFlowcharts] = await Promise.all([
+        localPersistence.getAllResources('project'),
+        localPersistence.getAllResources('erd'),
+        localPersistence.getAllResources('notes'),
+        localPersistence.getAllResources('drawings'),
+        localPersistence.getAllResources('flowchart'),
+      ]);
+
+      let filteredProjects = localProjects.filter(p => !p.is_deleted);
+      if (searchQuery) filteredProjects = filteredProjects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      // For guest, we also need to nested the files manually or just filter them in the UI
+      // To match the backend structure:
+      const projectsWithFiles = filteredProjects.map(p => ({
+        ...p,
+        diagrams: uDiagrams.filter(f => !f.is_deleted && String(f.project_id) === String(p.id)),
+        notes: uNotes.filter(f => !f.is_deleted && String(f.project_id) === String(p.id)),
+        drawings: uDrawings.filter(f => !f.is_deleted && String(f.project_id) === String(p.id)),
+        flowcharts: uFlowcharts.filter(f => !f.is_deleted && String(f.project_id) === String(p.id)),
+      }));
+
+      setProjects(projectsWithFiles);
+      setUncategorized({
+        diagrams: uDiagrams.filter(f => !f.is_deleted && !f.project_id),
+        notes: uNotes.filter(f => !f.is_deleted && !f.project_id),
+        drawings: uDrawings.filter(f => !f.is_deleted && !f.project_id),
+        flowcharts: uFlowcharts.filter(f => !f.is_deleted && !f.project_id),
+      });
+      setProjectsTotal(filteredProjects.length);
       setHasMoreProjects(false);
       return;
     }
@@ -30,20 +61,25 @@ export function useProjects(isGuest: boolean = false) {
     try {
       const offset = isLoadMore ? projectsRef.current.length : 0;
       const qParam = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
-      const res = await fetch(`/api/projects?limit=10&offset=${offset}${qParam}`);
+      const res = await fetch(`/api/projects?limit=100&offset=${offset}${qParam}`); // Increased limit for better tree view
       if (res.ok) {
         const json = await res.json();
-        const data = json.data !== undefined ? json.data : (Array.isArray(json) ? json : []);
-        const total = json.total !== undefined ? json.total : (Array.isArray(data) ? data.length : 0);
+        const projectsList = Array.isArray(json.data) ? json.data : [];
+        const total = json.total !== undefined ? json.total : projectsList.length;
         
-        const projectsList = Array.isArray(data) ? data : [];
         if (isLoadMore) {
           setProjects(prev => [...prev, ...projectsList]);
         } else {
           setProjects(projectsList);
         }
+
+        if (json.uncategorized) {
+          setUncategorized(json.uncategorized);
+        }
+
         setProjectsTotal(total);
         setHasMoreProjects((projectsList.length + offset) < total);
+        return json;
       } else {
         const errText = await res.text();
         console.error(`Failed to fetch projects: ${res.status} ${res.statusText}`, errText);
@@ -53,6 +89,7 @@ export function useProjects(isGuest: boolean = false) {
     } finally {
       setIsLoading(false);
     }
+    return null;
   }, [isGuest]);
 
   const createProject = async (name: string) => {
@@ -193,6 +230,8 @@ export function useProjects(isGuest: boolean = false) {
   return {
     projects,
     setProjects,
+    uncategorized,
+    setUncategorized,
     activeProjectId,
     setActiveProjectId,
     fetchProjects,

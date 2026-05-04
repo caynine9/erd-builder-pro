@@ -111,14 +111,14 @@ router.get("/public/:uid", async (req: ExpressRequest, res: ExpressResponse) => 
   const { data: entities, error: entitiesError } = await supabase
     .from("entities")
     .select("*")
-    .eq("file_id", diagramId);
+    .eq("diagram_id", diagramId);
 
   if (entitiesError) return res.status(500).json({ error: entitiesError.message });
 
   const { data: relationships, error: relError } = await supabase
     .from("relationships")
     .select("*")
-    .eq("file_id", diagramId);
+    .eq("diagram_id", diagramId);
 
   if (relError) return res.status(500).json({ error: relError.message });
 
@@ -190,14 +190,14 @@ router.get("/:id", authenticate, async (req: ExpressRequest, res: ExpressRespons
   const { data: entities, error: entitiesError } = await supabase
     .from("entities")
     .select("*")
-    .eq("file_id", diagramId);
+    .eq("diagram_id", diagramId);
 
   if (entitiesError) return res.status(500).json({ error: entitiesError.message });
 
   const { data: relationships, error: relError } = await supabase
     .from("relationships")
     .select("*")
-    .eq("file_id", diagramId);
+    .eq("diagram_id", diagramId);
 
   if (relError) return res.status(500).json({ error: relError.message });
 
@@ -303,7 +303,7 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
     const { data: existingRelationships } = await supabase
       .from("relationships")
       .select("id")
-      .eq("file_id", diagramId);
+      .eq("diagram_id", diagramId);
     
     const existingRelIds = new Set(existingRelationships?.map((r: any) => r.id) || []);
     const newRelIds = new Set(relationships.map((r: any) => r.id));
@@ -322,7 +322,7 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
     const { data: existingEntities } = await supabase
       .from("entities")
       .select("id")
-      .eq("file_id", diagramId);
+      .eq("diagram_id", diagramId);
     
     const existingEntityIds = new Set(existingEntities?.map((e: any) => e.id) || []);
     const newEntityIds = new Set(entities.map((e: any) => e.id));
@@ -348,7 +348,7 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
     if (entities.length > 0) {
       const entitiesToInsert = entities.map((e: any) => ({
         id: e.id,
-        file_id: diagramId,
+        diagram_id: diagramId,
         name: e.name,
         x: e.x,
         y: e.y,
@@ -413,7 +413,7 @@ router.post("/save/:id", authenticate, async (req: ExpressRequest, res: ExpressR
     if (relationships.length > 0) {
       const relsToInsert = relationships.map((r: any) => ({
         id: r.id,
-        file_id: diagramId,
+        diagram_id: diagramId,
         source_entity_id: r.source_entity_id,
         target_entity_id: r.target_entity_id,
         source_column_id: r.source_column_id || null,
