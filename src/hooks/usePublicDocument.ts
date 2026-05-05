@@ -75,14 +75,14 @@ export function usePublicDocument(
           let tHandle = r.target_handle;
 
           if (!sHandle && sourceEntity && targetEntity) {
-            const sx = Number(sourceEntity.x);
-            const tx = Number(targetEntity.x);
+            const sx = Number(sourceEntity.x) || 0;
+            const tx = Number(targetEntity.x) || 0;
             sHandle = sx < tx ? `col-${r.source_column_id}-source` : `col-${r.source_column_id}-source-l`;
           }
 
           if (!tHandle && sourceEntity && targetEntity) {
-            const sx = Number(sourceEntity.x);
-            const tx = Number(targetEntity.x);
+            const sx = Number(sourceEntity.x) || 0;
+            const tx = Number(targetEntity.x) || 0;
             tHandle = sx < tx ? `col-${r.target_column_id}-target` : `col-${r.target_column_id}-target-r`;
           }
 

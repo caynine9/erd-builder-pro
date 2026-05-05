@@ -36,6 +36,7 @@ interface ERDViewProps {
   addEntity: () => void;
   openImportModal: () => void;
   handleExportSQL: (dialect: 'postgresql' | 'mysql') => void;
+  onNodeDragStop?: () => void;
 
   handleExportPDF: () => void;
   handleExportImage: () => void;
@@ -78,7 +79,8 @@ const ERDViewComponent = ({
   canRedo,
   takeSnapshot,
   isLoading = false,
-  selectedNodeId
+  selectedNodeId,
+  onNodeDragStop
 }: ERDViewProps) => {
   const showLoadingOverlay = isLoading && nodes.length === 0;
 
@@ -178,7 +180,7 @@ const ERDViewComponent = ({
           nodesDraggable={!isReadOnly}
           nodesConnectable={!isReadOnly}
           elementsSelectable={!isReadOnly}
-          onNodeDragStop={() => takeSnapshot && takeSnapshot(nodes, edges)}
+          onNodeDragStop={onNodeDragStop}
           minZoom={0.1}
           maxZoom={2.5}
           defaultEdgeOptions={{

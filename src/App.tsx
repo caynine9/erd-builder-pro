@@ -205,7 +205,8 @@ function AppContent() {
     selectedEdgeId, setSelectedEdgeId,
     onConnect, addEntity, updateEntity, deleteEntity, handleEdgeUpdate, deleteEdge,
     handleDiagramSelect: selectDiagram, viewportRef,
-    undo, redo, canUndo, canRedo, takeSnapshot, isItemLoading: isERDItemLoading, saveCounter
+    undo, redo, canUndo, canRedo, takeSnapshot, isItemLoading: isERDItemLoading, saveCounter,
+    onNodeDragStop
   } = useERDSession(isPublicView, isGuest, isAuthenticated, setView, erdOptions);
 
   // Effective ID for realtime sync (works for both owner and public guest)
@@ -1417,6 +1418,7 @@ function AppContent() {
                   canRedo={canRedo}
                   takeSnapshot={takeSnapshot}
                   selectedNodeId={selectedNodeId}
+                  onNodeDragStop={onNodeDragStop}
                 />
               )}
               {view === 'backups' && (
