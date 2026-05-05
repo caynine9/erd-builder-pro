@@ -104,7 +104,7 @@ const ERDViewComponent = ({
   }, [edges, selectedNodeId]);
 
   return (
-    <div className="flex-1 relative flex flex-col overflow-hidden border rounded-xl bg-muted/20">
+    <div className="flex-1 relative flex flex-col overflow-hidden border rounded-xl bg-muted/20" style={{ contain: 'paint layout' }}>
       {/* Loading overlay - keeps ReactFlow mounted underneath */}
       {showLoadingOverlay && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-muted/10 backdrop-blur-[1px]">

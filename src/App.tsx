@@ -129,7 +129,8 @@ function AppContent() {
   const [duplicateName, setDuplicateName] = useState("");
   
   // Safety Gate & Persistence State
-  const [isLocalSaving, setIsLocalSaving] = useState(false);
+  const isLocalSavingRef = useRef(false);
+  const setIsLocalSaving = useCallback((val: boolean) => { isLocalSavingRef.current = val; }, []);
   const lastLoadedDiagramIdRef = useRef<number | string | null>(null);
   const lastLoadedNoteIdRef = useRef<number | string | null>(null);
   const lastLoadedDrawingIdRef = useRef<number | string | null>(null);
@@ -505,7 +506,7 @@ function AppContent() {
   }, [activeFlowchartId, saveFlowchart, setFlowcharts, triggerDebouncedSync, isRefreshing, isFlowchartItemLoading, broadcastMessage]);
 
   async function flushPendingSaves() {
-    if (!isLocalSaving) return;
+    if (!isLocalSavingRef.current) return;
 
     // 1. Force clear any pending timeouts
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -910,7 +911,7 @@ function AppContent() {
   // Safety Gate: Intercept tab close/reload if there are unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isLocalSaving) {
+      if (isLocalSavingRef.current) {
         e.preventDefault();
         e.returnValue = ''; // Required by modern browsers to trigger the dialog
         return '';
@@ -919,13 +920,13 @@ function AppContent() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isLocalSaving]);
+  }, []);
 
   // Intelligent Fetch on Focus: Refresh data when returning to tab
   useEffect(() => {
     const handleFocus = async () => {
       // Only refresh if online, authenticated, not in public view, and not currently saving/syncing
-      if (!isOnline || !isAuthenticated || isPublicView || isLocalSaving || isRefreshing || isSyncing) return;
+      if (!isOnline || !isAuthenticated || isPublicView || isLocalSavingRef.current || isRefreshing || isSyncing) return;
       
       // Throttle: don't refresh more than once every 120 seconds (2 minutes)
       const now = Date.now();
@@ -1009,7 +1010,7 @@ function AppContent() {
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [
-    isOnline, isAuthenticated, isPublicView, isLocalSaving, isRefreshing, isSyncing,
+    isOnline, isAuthenticated, isPublicView, isRefreshing, isSyncing,
     view, debouncedSearchQuery,
     activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId,
     fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts,
@@ -1020,7 +1021,7 @@ function AppContent() {
   // Emergency Flush: Save immediately when switching tabs or minimizing
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && isLocalSaving) {
+      if (document.visibilityState === 'hidden' && isLocalSavingRef.current) {
         // Trigger all active saves immediately
         if (view === 'erd' && activeDiagramId) {
           saveDiagram(nodes, edges, viewportRef.current).then(() => {
@@ -1057,11 +1058,20 @@ function AppContent() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [view, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId, nodes, edges, isLocalSaving, saveDiagram, saveNote, saveDrawing, saveFlowchart, triggerDebouncedSync, notes, drawings, flowcharts]);
+  }, [view, activeDiagramId, activeNoteId, activeDrawingId, activeFlowchartId, nodes, edges, saveDiagram, saveNote, saveDrawing, saveFlowchart, triggerDebouncedSync, notes, drawings, flowcharts]);
+
+  // 🛡️ Track last processed saveCounter to skip effect on diagram navigation (no actual edits)
+  const lastProcessedCounterRef = useRef(0);
 
   // ERD Auto-save
   useEffect(() => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+    // 🛡️ Skip if saveCounter hasn't actually incremented (e.g., only activeDiagramId changed
+    // due to diagram navigation). This prevents unnecessary save trigger + flicker on initial load.
+    if (saveCounter === lastProcessedCounterRef.current) return;
+    lastProcessedCounterRef.current = saveCounter;
+
     if (activeDiagramId && (isAuthenticated || isGuest) && view === 'erd' && !isPublicView) {
       // Prevent loop: If this change came from another tab's sync, DON'T save it back
       if (isIncomingSyncRef.current) {
@@ -1086,12 +1096,16 @@ function AppContent() {
           return;
         }
 
-        // SAFETY 1: ID Validation Guard
-        if (lastLoadedDiagramIdRef.current !== activeDiagramId) return;
+        // SAFETY 1: ID Validation Guard — diagram was switched, nothing to save
+        if (lastLoadedDiagramIdRef.current !== activeDiagramId) {
+          setIsLocalSaving(false);
+          return;
+        }
 
         // SAFETY 2: Loading/Refresh Guard - Wait if still loading
         if (isRefreshing || isERDItemLoading || isDiagramsLoading) {
           console.log("[SaveGuard] Deferring save: App is refreshing/loading");
+          setIsLocalSaving(false);
           return; 
         }
 
@@ -1100,6 +1114,7 @@ function AppContent() {
         // it's not a loading/race condition error.
         if (nodes.length === 0) {
            console.warn("[SaveGuard] Blocking auto-save of empty ERD to prevent data loss");
+           setIsLocalSaving(false);
            return;
         }
         await saveDiagram(nodes, edges, viewportRef.current);
@@ -1109,7 +1124,13 @@ function AppContent() {
         broadcastMessage(BroadcastMessageType.DRAFT_UPDATED, DraftType.ERD, activeDiagramId);
       }, 800);
     }
-    return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
+    return () => { 
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      setIsLocalSaving(false); 
+    };
   }, [saveCounter, activeDiagramId, isAuthenticated, isGuest, view, saveDiagram, isPublicView, triggerDebouncedSync, broadcastMessage]);
 
   // Handlers
@@ -1357,7 +1378,7 @@ function AppContent() {
           }}
         />
 
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-h-0 overflow-hidden">
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-h-0 overflow-hidden" style={{ isolation: 'isolate' }}>
           {!hasActiveItem && view !== 'trash' && view !== 'changelog' && view !== 'backups' && !isPublicView ? <WelcomeView /> : (
             <>
               {view === 'erd' && (isPublicView ? publicData : activeDiagramId) && (
