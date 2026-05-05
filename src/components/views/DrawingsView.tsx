@@ -21,7 +21,10 @@ export const DrawingsView = React.memo(({
   isReadOnly = false,
   isLoading = false
 }: DrawingsViewProps) => {
-  if (isLoading) {
+  // Only show full loader if we are loading AND don't have the drawing data yet.
+  const showLoader = isLoading && !activeDrawing;
+
+  if (showLoader) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center border rounded-xl bg-muted/10">
         <Loader2 className="w-10 h-10 text-primary animate-spin opacity-50" />
@@ -29,6 +32,7 @@ export const DrawingsView = React.memo(({
       </div>
     );
   }
+
 
   if (!activeDrawing) return null;
 

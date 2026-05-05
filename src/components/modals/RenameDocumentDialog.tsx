@@ -33,10 +33,11 @@ interface RenameDocumentDialogProps {
   updateNote: (id: string | number, name: string, options?: { silent?: boolean }) => void;
   updateDrawing: (id: string | number, name: string, options?: { silent?: boolean }) => void;
   updateFlowchart: (id: string | number, name: string, options?: { silent?: boolean }) => void;
-  onMoveDiagramToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveNoteToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveDrawingToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveFlowchartToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
+  onMoveDiagramToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveNoteToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveDrawingToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveFlowchartToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onRenameSuccess?: () => Promise<void>;
 }
 
 export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
@@ -57,6 +58,7 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
   onMoveNoteToProject,
   onMoveDrawingToProject,
   onMoveFlowchartToProject,
+  onRenameSuccess,
 }) => {
   const handleSave = async () => {
     const id = activeDocument?.id;
@@ -81,6 +83,11 @@ export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({
           else if (view === 'notes') await onMoveNoteToProject(id, projectId, { silent: true });
           else if (view === 'drawings') await onMoveDrawingToProject(id, projectId, { silent: true });
           else if (view === 'flowchart') await onMoveFlowchartToProject(id, projectId, { silent: true });
+        }
+
+        // 3. Refresh sidebar data (projects wrapper)
+        if ((hasNameChanged || hasProjectChanged) && onRenameSuccess) {
+          await onRenameSuccess();
         }
 
         toast.success('Document updated successfully');

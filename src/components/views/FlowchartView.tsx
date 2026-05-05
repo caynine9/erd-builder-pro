@@ -45,7 +45,10 @@ export const FlowchartView = React.memo(({
   isReadOnly = false,
   isLoading = false 
 }: FlowchartViewProps) => {
-  if (isLoading) {
+  // Only show full loader if we are loading AND don't have the flowchart data yet.
+  const showLoader = isLoading && (!activeFlowchart || !activeFlowchart.data);
+
+  if (showLoader) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center border rounded-xl bg-muted/10">
         <Loader2 className="w-10 h-10 text-primary animate-spin opacity-50" />
@@ -53,6 +56,7 @@ export const FlowchartView = React.memo(({
       </div>
     );
   }
+
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowchartNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 

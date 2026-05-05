@@ -21,7 +21,11 @@ export const NotesView = React.memo(({
   isReadOnly = false,
   isLoading = false
 }: NotesViewProps) => {
-  if (isLoading) {
+  // Only show skeleton if we are loading AND don't have the note data yet.
+  // This prevents flickering during background refreshes or auto-saves.
+  const showSkeleton = isLoading && (!activeNote || activeNote.content === undefined);
+
+  if (showSkeleton) {
     return (
       <div className="flex-1 space-y-4 p-8 border rounded-xl bg-background">
         <Skeleton className="h-10 w-3/4 rounded-lg" />
@@ -38,6 +42,7 @@ export const NotesView = React.memo(({
       </div>
     );
   }
+
 
   if (!activeNote) return null;
   

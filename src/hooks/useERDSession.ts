@@ -18,7 +18,7 @@ import { useRealtimeSync } from './useRealtimeSync';
 export function useERDSession(
   isPublicView: boolean,
   isGuest: boolean,
-  isAuthenticated: boolean,
+  isAuthenticated: boolean | null,
   setView: (view: any) => void,
   options?: {
     broadcastNodeMove?: (id: string, x: number, y: number) => void;
@@ -33,16 +33,11 @@ export function useERDSession(
   // Ref for previous edges to avoid redundant node updates
   const lastEdgesHash = useRef<string>("");
 
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });
   const { setViewport } = useReactFlow();
-
-  // Watch for nodes/edges changes to increment save counter
-  useEffect(() => {
-    setSaveCounter(prev => prev + 1);
-  }, [nodes, edges]);
 
   // Wrapped onNodesChange to broadcast movement
   const onNodesChangeWrapped = useCallback((changes: any) => {
@@ -66,7 +61,13 @@ export function useERDSession(
   }, [onEdgesChange, options?.broadcastEdgesUpdate, edges]);
   
   // Undo/Redo Hook
-  const { takeSnapshot, undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo();
+  const { takeSnapshot: rawTakeSnapshot, undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo();
+
+  // Wrapped takeSnapshot that also marks data as dirty for auto-save
+  const takeSnapshot = useCallback((n: Node<Entity>[], e: Edge[]) => {
+    rawTakeSnapshot(n, e);
+    setSaveCounter(prev => prev + 1);
+  }, [rawTakeSnapshot]);
 
   const handleUndo = useCallback(() => {
     const prev = undo(nodes, edges);
@@ -84,7 +85,7 @@ export function useERDSession(
     }
   }, [redo, nodes, edges, setNodes, setEdges]);
 
-  const handleDiagramSelect = async (id: number | string, setActiveDiagramId: (id: any) => void, options?: { silent?: boolean }) => {
+  const handleDiagramSelect = useCallback(async (id: number | string, setActiveDiagramId: (id: any) => void, options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setIsItemLoading(true);
       // Clear current view to avoid showing stale data from previous diagram
@@ -203,7 +204,7 @@ export function useERDSession(
     } catch (err) {} finally {
       setIsItemLoading(false);
     }
-  };
+  }, [isGuest, clearHistory, setNodes, setEdges, setSelectedNodeId, setViewport]);
 
   const onConnect: OnConnect = useCallback((params) => {
     if (isPublicView) return;

@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   History, 
   ExternalLink, 
   Calendar, 
   Tag, 
   ChevronRight, 
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   Sparkles,
   Loader2,
   AlertCircle
@@ -29,6 +32,8 @@ import { cn } from '@/lib/utils';
 
 const GITHUB_REPO = 'hadziqmtqn/erd-builder-pro';
 
+const ITEMS_PER_PAGE = 5;
+
 interface GitHubRelease {
   id: number;
   tag_name: string;
@@ -39,30 +44,59 @@ interface GitHubRelease {
   prerelease: boolean;
 }
 
+function parseTotalPages(linkHeader: string | null): number {
+  if (!linkHeader) return 1;
+  const lastMatch = linkHeader.match(/page=(\d+)>;\s*rel="last"/);
+  return lastMatch ? parseInt(lastMatch[1], 10) : 1;
+}
+
 export function ChangelogView() {
   const [releases, setReleases] = useState<GitHubRelease[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<GitHubRelease | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const fetchPage = async (page: number) => {
+    if (page === 1) {
+      setLoading(true);
+    } else {
+      setPageLoading(true);
+    }
+
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=${ITEMS_PER_PAGE}&page=${page}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch releases');
+      const data = await response.json();
+      setReleases(data);
+      setTotalPages(parseTotalPages(response.headers.get('Link')));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+      setPageLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchReleases = async () => {
-      try {
-        const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases`);
-        if (!response.ok) throw new Error('Failed to fetch releases');
-        const data = await response.json();
-        setReleases(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReleases();
+    fetchPage(1);
   }, []);
 
-  if (loading) {
+  // Fetch new page & scroll to top when page changes
+  useEffect(() => {
+    fetchPage(currentPage);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
+  const isFirstPage = currentPage === 1;
+
+  if (loading && releases.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -70,6 +104,7 @@ export function ChangelogView() {
       </div>
     );
   }
+
 
   if (error) {
     return (
@@ -104,7 +139,7 @@ export function ChangelogView() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-8">
         <div className="max-w-3xl mx-auto relative pl-8 space-y-12">
           {/* Vertical Timeline Line */}
           <div className="absolute left-[15px] top-2 bottom-0 w-px bg-border" />
@@ -121,9 +156,9 @@ export function ChangelogView() {
                 {/* Timeline Dot */}
                 <div className={cn(
                   "absolute -left-[32px] top-1.5 size-8 rounded-full border-4 border-background flex items-center justify-center transition-colors",
-                  index === 0 ? "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.5)]" : "bg-muted"
+                  isFirstPage && index === 0 ? "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.5)]" : "bg-muted"
                 )}>
-                  {index === 0 ? <Sparkles className="w-4 h-4 text-primary-foreground" /> : <Tag className="w-3 h-3 text-muted-foreground" />}
+                  {isFirstPage && index === 0 ? <Sparkles className="w-4 h-4 text-primary-foreground" /> : <Tag className="w-3 h-3 text-muted-foreground" />}
                 </div>
 
                 <div className="space-y-3">
@@ -135,7 +170,7 @@ export function ChangelogView() {
                       <Calendar className="w-3 h-3" />
                       {format(new Date(release.published_at), 'MMMM d, yyyy')}
                     </span>
-                    {index === 0 && (
+                    {isFirstPage && index === 0 && (
                       <Badge variant="outline" className="text-[10px] uppercase tracking-tighter bg-primary/5 text-primary border-primary/20">
                         Latest
                       </Badge>
@@ -144,7 +179,7 @@ export function ChangelogView() {
 
                   <Card className={cn(
                     "group transition-all duration-300 hover:border-primary/50 cursor-pointer overflow-hidden backdrop-blur-sm",
-                    index === 0 ? "bg-primary/5 border-primary/20 shadow-lg shadow-primary/5" : "bg-card/50"
+                    isFirstPage && index === 0 ? "bg-primary/5 border-primary/20 shadow-lg shadow-primary/5" : "bg-card/50"
                   )} onClick={() => setSelectedRelease(release)}>
                     <CardHeader className="p-4 flex flex-row items-center justify-between space-y-0">
                       <div className="space-y-1">
@@ -162,6 +197,100 @@ export function ChangelogView() {
               </motion.div>
             ))}
           </AnimatePresence>
+
+          {/* Page loading indicator */}
+          {pageLoading && (
+            <div className="flex justify-center pt-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Loading page...
+              </div>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && !pageLoading && (
+            <div className="flex items-center justify-center gap-1 pt-8 pb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="size-9 p-0"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+                className="size-9 p-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+
+              <div className="flex items-center gap-1 px-2">
+                {(() => {
+                  const pages: (number | 'ellipsis')[] = [];
+                  const range = 1;
+                  for (let i = 1; i <= totalPages; i++) {
+                    if (
+                      i === 1 ||
+                      i === totalPages ||
+                      (i >= currentPage - range && i <= currentPage + range)
+                    ) {
+                      pages.push(i);
+                    } else if (pages[pages.length - 1] !== 'ellipsis') {
+                      pages.push('ellipsis');
+                    }
+                  }
+                  return pages.map((page, i) =>
+                    page === 'ellipsis' ? (
+                      <span key={`e-${i}`} className="px-1 text-xs text-muted-foreground">
+                        ...
+                      </span>
+                    ) : (
+                      <Button
+                        key={page}
+                        variant={page === currentPage ? 'default' : 'ghost'}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className="min-w-9 h-9 p-0 text-xs font-mono"
+                      >
+                        {page}
+                      </Button>
+                    )
+                  );
+                })()}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+                className="size-9 p-0"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="size-9 p-0"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {totalPages > 1 && !pageLoading && (
+            <p className="text-center text-[11px] text-muted-foreground/60 pb-2">
+              Page {currentPage} of {totalPages}
+            </p>
+          )}
         </div>
       </div>
 

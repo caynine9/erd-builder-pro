@@ -30,7 +30,7 @@ interface MainHeaderProps {
   isRefreshing?: boolean;
   hasPendingSyncs?: boolean;
   activeFileUid?: string;
-  activeFileId?: number | string;
+  activeFileId?: number | string | null;
   initialShareSettings?: {
     is_public: boolean;
     share_token?: string;
@@ -200,10 +200,11 @@ export const MainHeader = React.memo(({
                           onClick={onSave}
                           disabled={!hasPendingSyncs || isSyncing || !isOnline}
                           className={cn(
-                            "h-8 px-2 gap-2 transition-all duration-300",
+                            "h-8 px-2 gap-2 transition-all duration-300 min-w-[100px] justify-center",
                             hasPendingSyncs ? "text-primary hover:text-primary hover:bg-primary/10" : "text-muted-foreground/40 opacity-50 cursor-default"
                           )}
                         >
+
                           {isSyncing ? (
                             <>
                               <Cloud className="w-4 h-4 animate-bounce" />
