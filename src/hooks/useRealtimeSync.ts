@@ -13,9 +13,16 @@ export const useRealtimeSync = (
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>
 ) => {
   const channelRef = useRef<any>(null);
+  const subscribedIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     if (!activeDiagramId) return;
+
+    // 🛡️ Skip re-subscribe if already subscribed to this diagram.
+    // Prevents unnecessary canvas re-initialization when AppContent
+    // re-renders but the diagram ID hasn't actually changed.
+    if (subscribedIdRef.current === activeDiagramId) return;
+    subscribedIdRef.current = activeDiagramId;
 
     console.log(`[Realtime] Connecting to diagram:${activeDiagramId}`);
 
