@@ -52,7 +52,7 @@ interface ERDViewProps {
 
 import { JumpToNode } from '../JumpToNode';
 
-export const ERDView = React.memo(({
+const ERDViewComponent = ({
   nodes,
   edges,
   onNodesChange,
@@ -79,14 +79,7 @@ export const ERDView = React.memo(({
   isLoading = false,
   selectedNodeId
 }: ERDViewProps) => {
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center border rounded-xl bg-muted/10">
-        <Loader2 className="w-10 h-10 text-primary animate-spin opacity-50" />
-        <p className="mt-4 text-sm font-medium text-muted-foreground animate-pulse">Loading diagram...</p>
-      </div>
-    );
-  }
+  const showLoadingOverlay = isLoading && nodes.length === 0;
 
   const styledEdges = React.useMemo(() => {
     return edges.map(edge => {
@@ -112,7 +105,15 @@ export const ERDView = React.memo(({
 
   return (
     <div className="flex-1 relative flex flex-col overflow-hidden border rounded-xl bg-muted/20">
-       {!isReadOnly && (
+      {/* Loading overlay - keeps ReactFlow mounted underneath */}
+      {showLoadingOverlay && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-muted/10 backdrop-blur-[1px]">
+          <Loader2 className="w-10 h-10 text-primary animate-spin opacity-60" />
+          <p className="mt-4 text-sm font-medium text-muted-foreground animate-pulse">Loading diagram...</p>
+        </div>
+      )}
+
+      {!isReadOnly && (
         <div className="absolute top-6 inset-x-0 z-10 flex justify-center pointer-events-none">
           <div className="flex items-center gap-1.5 p-1.5 bg-background/95 backdrop-blur-md border border-border/50 rounded-2xl shadow-2xl pointer-events-auto max-w-[95vw] overflow-x-auto no-scrollbar">
             <JumpToNode nodes={nodes} />
@@ -195,5 +196,20 @@ export const ERDView = React.memo(({
         </ReactFlow>
       </div>
     </div>
+  );
+};
+
+// Custom comparator: skip function props to prevent unnecessary re-renders
+// from App.tsx's inline callbacks (save/sync cycle triggers re-render but
+// shouldn't cause ReactFlow to re-initialize)
+export const ERDView = React.memo(ERDViewComponent, (prev, next) => {
+  return (
+    prev.nodes === next.nodes &&
+    prev.edges === next.edges &&
+    prev.isLoading === next.isLoading &&
+    prev.isReadOnly === next.isReadOnly &&
+    prev.selectedNodeId === next.selectedNodeId &&
+    prev.canUndo === next.canUndo &&
+    prev.canRedo === next.canRedo
   );
 });

@@ -136,6 +136,7 @@ function AppContent() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isIncomingSyncRef = useRef(false);
   const lastSaveCallRef = useRef<number>(0);
+  const lastDiagramLoadTimestampRef = useRef<number>(0);
   const lastFocusFetchRef = useRef<number>(0);
 
   // Search State
@@ -249,7 +250,10 @@ function AppContent() {
 
   // Sync initialization: Ensure guards allow saving once data is loaded
   useEffect(() => {
-    if (activeDiagramId && !isERDItemLoading) lastLoadedDiagramIdRef.current = activeDiagramId;
+    if (activeDiagramId && !isERDItemLoading) {
+      lastLoadedDiagramIdRef.current = activeDiagramId;
+      lastDiagramLoadTimestampRef.current = Date.now();
+    }
   }, [activeDiagramId, isERDItemLoading]);
 
   useEffect(() => {
@@ -605,6 +609,20 @@ function AppContent() {
       setIsLocalSaving(true);
       
       saveTimeoutRef.current = setTimeout(async () => {
+        // SAFETY 0: Skip if an immediate save was just performed
+        if (Date.now() - lastSaveCallRef.current < 500) {
+          console.log("[SaveGuard] Skipping auto-save: immediate save was just performed");
+          setIsLocalSaving(false);
+          return;
+        }
+
+        // SAFETY 0b: Skip if diagram was just loaded (no changes made yet)
+        if (Date.now() - lastDiagramLoadTimestampRef.current < 2000) {
+          console.log("[SaveGuard] Skipping auto-save: diagram was just loaded");
+          setIsLocalSaving(false);
+          return;
+        }
+
         // SAFETY 1: ID Validation Guard
         if (lastLoadedDiagramIdRef.current !== activeDiagramId) return;
 
@@ -629,7 +647,7 @@ function AppContent() {
       }, 800);
     }
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [nodes, edges, saveCounter, activeDiagramId, isAuthenticated, isGuest, view, saveDiagram, isPublicView, triggerDebouncedSync, isRefreshing, isERDItemLoading, isDiagramsLoading, broadcastMessage]);
+  }, [saveCounter, activeDiagramId, isAuthenticated, isGuest, view, saveDiagram, isPublicView, triggerDebouncedSync, isRefreshing, isERDItemLoading, isDiagramsLoading, broadcastMessage]);
 
   // Handlers
   const handleEntityUpdate = useCallback(async (updatedEntity: Entity, options?: { immediate?: boolean }) => {
@@ -1241,6 +1259,7 @@ function AppContent() {
             onMoveNoteToProject={moveNoteToProject}
             onMoveDrawingToProject={moveDrawingToProject}
             onMoveFlowchartToProject={moveFlowchartToProject}
+            onRenameSuccess={fetchProjects}
           />
         )}
 

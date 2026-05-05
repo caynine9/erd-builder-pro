@@ -39,11 +39,6 @@ export function useERDSession(
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });
   const { setViewport } = useReactFlow();
 
-  // Watch for nodes/edges changes to increment save counter
-  useEffect(() => {
-    setSaveCounter(prev => prev + 1);
-  }, [nodes, edges]);
-
   // Wrapped onNodesChange to broadcast movement
   const onNodesChangeWrapped = useCallback((changes: any) => {
     onNodesChange(changes);
@@ -66,7 +61,13 @@ export function useERDSession(
   }, [onEdgesChange, options?.broadcastEdgesUpdate, edges]);
   
   // Undo/Redo Hook
-  const { takeSnapshot, undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo();
+  const { takeSnapshot: rawTakeSnapshot, undo, redo, canUndo, canRedo, clearHistory } = useUndoRedo();
+
+  // Wrapped takeSnapshot that also marks data as dirty for auto-save
+  const takeSnapshot = useCallback((n: Node<Entity>[], e: Edge[]) => {
+    rawTakeSnapshot(n, e);
+    setSaveCounter(prev => prev + 1);
+  }, [rawTakeSnapshot]);
 
   const handleUndo = useCallback(() => {
     const prev = undo(nodes, edges);
