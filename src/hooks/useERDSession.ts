@@ -18,7 +18,7 @@ import { useRealtimeSync } from './useRealtimeSync';
 export function useERDSession(
   isPublicView: boolean,
   isGuest: boolean,
-  isAuthenticated: boolean,
+  isAuthenticated: boolean | null,
   setView: (view: any) => void,
   options?: {
     broadcastNodeMove?: (id: string, x: number, y: number) => void;
@@ -33,7 +33,7 @@ export function useERDSession(
   // Ref for previous edges to avoid redundant node updates
   const lastEdgesHash = useRef<string>("");
 
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });

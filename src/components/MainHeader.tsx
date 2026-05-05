@@ -30,7 +30,7 @@ interface MainHeaderProps {
   isRefreshing?: boolean;
   hasPendingSyncs?: boolean;
   activeFileUid?: string;
-  activeFileId?: number | string;
+  activeFileId?: number | string | null;
   initialShareSettings?: {
     is_public: boolean;
     share_token?: string;

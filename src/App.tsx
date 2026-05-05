@@ -753,6 +753,7 @@ function AppContent() {
 
 
   const handleNoteSelect = async (id: number | string) => {
+    if (activeNoteId === id && view === 'notes') return; // Already active — don't reload
     await flushPendingSaves();
     setView('notes');
     // Clear current note content to avoid showing stale data while loading
@@ -762,6 +763,7 @@ function AppContent() {
   };
 
   const handleDrawingSelect = async (id: number | string) => {
+    if (activeDrawingId === id && view === 'drawings') return; // Already active — don't reload
     await flushPendingSaves();
     setView('drawings');
     // Clear current drawing data to avoid showing stale data while loading
@@ -771,6 +773,7 @@ function AppContent() {
   };
 
   const handleFlowchartSelect = async (id: number | string) => {
+    if (activeFlowchartId === id && view === 'flowchart') return; // Already active — don't reload
     await flushPendingSaves();
     setView('flowchart');
     // Clear current flowchart data to avoid showing stale data while loading
@@ -1029,7 +1032,7 @@ function AppContent() {
           onLoadMoreNotes={() => fetchNotes(true, activeProjectId === null ? 'all' : activeProjectId, searchQuery)} 
           onNoteCopyMarkdown={async (id) => {
             const note = notes.find(n => n.id === id);
-            if (note) await copyMarkdownToClipboard(note.content);
+            if (note) await copyMarkdownToClipboard(note.content || '');
           }}
           onNoteImportMarkdown={(id) => {
             handleNoteSelect(id);

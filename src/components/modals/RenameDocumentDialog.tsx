@@ -33,10 +33,10 @@ interface RenameDocumentDialogProps {
   updateNote: (id: string | number, name: string, options?: { silent?: boolean }) => void;
   updateDrawing: (id: string | number, name: string, options?: { silent?: boolean }) => void;
   updateFlowchart: (id: string | number, name: string, options?: { silent?: boolean }) => void;
-  onMoveDiagramToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveNoteToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveDrawingToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
-  onMoveFlowchartToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean>;
+  onMoveDiagramToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveNoteToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveDrawingToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
+  onMoveFlowchartToProject: (id: number | string, projectId: number | string | null, options?: { silent?: boolean }) => Promise<boolean | undefined>;
 }
 
 export const RenameDocumentDialog: React.FC<RenameDocumentDialogProps> = ({

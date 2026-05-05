@@ -266,32 +266,43 @@ export function useNotes(isGuest: boolean = false) {
   };
 
   const selectNote = async (id: number | string, options?: { silent?: boolean }) => {
-    const note = notes.find(n => n.id === id);
+    // Use notesRef.current to get the latest state even if the component hasn't re-rendered yet
+    const note = notesRef.current.find(n => String(n.id) === String(id));
     if (note?.is_deleted) return;
     
     if (!options?.silent) setIsItemLoading(true);
     try {
-      // Lazy load full content from server if it's missing (excluded from list query)
-      if (!isGuest && note && note.content === undefined) {
+      // ALWAYS load full content from server if not guest.
+      // This ensures we have the latest data from the database and avoids the bug 
+      // where App.tsx clears content while this function sees stale state.
+      if (!isGuest) {
         try {
           const res = await fetch(`/api/notes/${id}`);
           if (res.ok) {
             const fullNote = await res.json();
-            setNotes(prev => prev.map(n => n.id === id ? { ...n, content: fullNote.content } : n));
+            // Only update if it's not deleted (might have changed on another tab)
+            if (fullNote && !fullNote.is_deleted) {
+              setNotes(prev => prev.map(n => String(n.id) === String(id) ? { ...n, content: fullNote.content } : n));
+            }
           }
         } catch (e) {
-          console.error("Failed to lazy load note content:", e);
+          console.error("Failed to load note content:", e);
         }
       }
 
+      // Check for local unsynced drafts which should take priority
       const draft = await localPersistence.getDraft(DraftType.NOTES, id);
       if (draft && draft.sync_pending) {
         try {
           const parsed = JSON.parse(draft.data);
-          setNotes(prev => prev.map(n => n.id === id ? { ...n, content: parsed.content } : n));
-          toast.info("Loaded unsynced local note draft");
+          setNotes(prev => prev.map(n => String(n.id) === String(id) ? { ...n, content: parsed.content } : n));
+          // Only show toast if not a silent operation
+          if (!options?.silent) {
+            toast.info("Loaded unsynced local note draft");
+          }
         } catch (e) {}
       }
+      
       setActiveNoteId(id);
     } finally {
       setIsItemLoading(false);

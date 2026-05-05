@@ -81,7 +81,7 @@ export interface Note {
   id: number | string;
   uid?: string;
   title: string;
-  content: string;
+  content?: string; // Optional — lazy loaded from server
   user_id?: string; // Owner of the note
   project_id: number | string | null;
   projects?: Project;
@@ -99,7 +99,7 @@ export interface Drawing {
   id: number | string;
   uid?: string;
   title: string;
-  data: string;
+  data?: string; // Optional — lazy loaded from server
   user_id?: string; // Owner of the drawing
   project_id: number | string | null;
   projects?: Project;
@@ -117,7 +117,7 @@ export interface Flowchart {
   id: number | string;
   uid?: string;
   title: string;
-  data: string;
+  data?: string; // Optional — lazy loaded from server
   user_id?: string; // Owner of the flowchart
   project_id: number | string | null;
   projects?: Project;
