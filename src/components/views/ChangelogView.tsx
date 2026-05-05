@@ -96,7 +96,7 @@ export function ChangelogView() {
 
   const isFirstPage = currentPage === 1;
 
-  if (loading) {
+  if (loading && releases.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -104,6 +104,7 @@ export function ChangelogView() {
       </div>
     );
   }
+
 
   if (error) {
     return (

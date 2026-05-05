@@ -203,13 +203,32 @@ const ERDViewComponent = ({
 // from App.tsx's inline callbacks (save/sync cycle triggers re-render but
 // shouldn't cause ReactFlow to re-initialize)
 export const ERDView = React.memo(ERDViewComponent, (prev, next) => {
+  // Optimization: If we already have nodes, don't re-render just because isLoading flickers
+  // (e.g. during a background sync). This prevents the ReactFlow canvas from "blinking".
+  const loadingFlickered = prev.isLoading !== next.isLoading;
+  const hasData = next.nodes.length > 0;
+  const shouldIgnoreLoading = loadingFlickered && hasData;
+
+  // Structural check for nodes and edges to handle reference changes during sync
+  const nodesChanged = prev.nodes !== next.nodes && (
+    prev.nodes.length !== next.nodes.length ||
+    JSON.stringify(prev.nodes.map(n => ({ id: n.id, data: n.data, pos: n.position }))) !== 
+    JSON.stringify(next.nodes.map(n => ({ id: n.id, data: n.data, pos: n.position })))
+  );
+
+  const edgesChanged = prev.edges !== next.edges && (
+    prev.edges.length !== next.edges.length ||
+    JSON.stringify(prev.edges) !== JSON.stringify(next.edges)
+  );
+
   return (
-    prev.nodes === next.nodes &&
-    prev.edges === next.edges &&
-    prev.isLoading === next.isLoading &&
+    !nodesChanged &&
+    !edgesChanged &&
+    (shouldIgnoreLoading || prev.isLoading === next.isLoading) &&
     prev.isReadOnly === next.isReadOnly &&
     prev.selectedNodeId === next.selectedNodeId &&
     prev.canUndo === next.canUndo &&
     prev.canRedo === next.canRedo
   );
 });
+

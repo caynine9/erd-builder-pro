@@ -7,7 +7,8 @@ import {
   PenTool, 
   Network,
   RefreshCcw, 
-  Trash2 as TrashIcon
+  Trash2 as TrashIcon,
+  Loader2
 } from 'lucide-react';
 import { 
   Table, 
@@ -58,7 +59,15 @@ export function TrashView({
   isLoading = false
 }: TrashViewProps) {
   return (
-    <div className="flex-1 flex flex-col min-h-0 border rounded-xl bg-background overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 border rounded-xl bg-background overflow-hidden relative">
+      {/* Subtle Loading Overlay */}
+      {isLoading && trashData.projects.length === 0 && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-background/60 backdrop-blur-[1px]">
+          <Loader2 className="w-8 h-8 text-primary animate-spin opacity-60" />
+          <p className="mt-2 text-xs font-medium text-muted-foreground">Loading trash...</p>
+        </div>
+      )}
+
       <div className="p-6 border-b shrink-0">
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <Trash size={24} className="text-muted-foreground" />

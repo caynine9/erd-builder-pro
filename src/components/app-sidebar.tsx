@@ -110,7 +110,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   };
 }
 
-export function AppSidebar({
+export const AppSidebar = React.memo(({
   diagrams,
   notes,
   drawings,
@@ -176,7 +176,7 @@ export function AppSidebar({
   isFlowchartsLoading,
   isTrashLoading,
   ...props
-}: AppSidebarProps) {
+}: AppSidebarProps) => {
   const { state, setOpen } = useSidebar();
   const isCollapsed = state === "collapsed";
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -371,32 +371,34 @@ export function AppSidebar({
       <SidebarFooter>
         {isInstallable && (
           <div className={cn("px-3 mb-2", isCollapsed && "px-0 flex justify-center")}>
-            <Tooltip>
-              <TooltipTrigger render={
-                <Button 
-                  variant="outline" 
-                  size={isCollapsed ? "icon" : "sm"} 
-                  className={cn(
-                    "border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-300",
-                    isCollapsed ? "size-9 p-0" : "w-full justify-start gap-2 h-9"
-                  )}
-                  onClick={onInstall}
-                >
-                  <motion.div
-                    animate={{ rotate: [0, 15, -15, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size={isCollapsed ? "icon" : "sm"} 
+                    className={cn(
+                      "border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-300",
+                      isCollapsed ? "size-9 p-0" : "w-full justify-start gap-2 h-9"
+                    )}
+                    onClick={onInstall}
                   >
-                    <Database className="w-4 h-4" />
-                  </motion.div>
-                  {!isCollapsed && <span>Install App</span>}
-                </Button>
-              } />
-              {isCollapsed && (
-                <TooltipContent side="right">
-                  Install App
-                </TooltipContent>
-              )}
-            </Tooltip>
+                    <motion.div
+                      animate={{ rotate: [0, 15, -15, 0] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <Database className="w-4 h-4" />
+                    </motion.div>
+                    {!isCollapsed && <span>Install App</span>}
+                  </Button>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right">
+                    Install App
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
         <NavUser 
@@ -408,5 +410,6 @@ export function AppSidebar({
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
-}
+  );
+});
+

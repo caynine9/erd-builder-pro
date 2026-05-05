@@ -85,7 +85,7 @@ export function useERDSession(
     }
   }, [redo, nodes, edges, setNodes, setEdges]);
 
-  const handleDiagramSelect = async (id: number | string, setActiveDiagramId: (id: any) => void, options?: { silent?: boolean }) => {
+  const handleDiagramSelect = useCallback(async (id: number | string, setActiveDiagramId: (id: any) => void, options?: { silent?: boolean }) => {
     if (!options?.silent) {
       setIsItemLoading(true);
       // Clear current view to avoid showing stale data from previous diagram
@@ -204,7 +204,7 @@ export function useERDSession(
     } catch (err) {} finally {
       setIsItemLoading(false);
     }
-  };
+  }, [isGuest, clearHistory, setNodes, setEdges, setSelectedNodeId, setViewport]);
 
   const onConnect: OnConnect = useCallback((params) => {
     if (isPublicView) return;
