@@ -5,7 +5,6 @@ import {
   Edge
 } from '@xyflow/react';
 import { copyMarkdownToClipboard } from './lib/markdownUtils';
-import '@xyflow/react/dist/style.css';
 
 // Components
 import { AppSidebar } from './components/app-sidebar';
@@ -24,13 +23,17 @@ import { DuplicateDocumentDialog } from './components/modals/DuplicateDocumentDi
 import { TablePropertiesModal } from './components/modals/TablePropertiesModal';
 import { RelationshipPropertiesModal } from './components/modals/RelationshipPropertiesModal';
 
-// Views
-import { ERDView } from './components/views/ERDView';
-import { NotesView } from './components/views/NotesView';
-import { DrawingsView } from './components/views/DrawingsView';
-import { TrashView } from './components/views/TrashView';
+// Lazy-loaded Views (heavy bundles — React Flow, Excalidraw, TipTap)
+const ERDView = React.lazy(() => import('./components/views/ERDView').then(m => ({ default: m.ERDView })));
+const NotesView = React.lazy(() => import('./components/views/NotesView').then(m => ({ default: m.NotesView })));
+const DrawingsView = React.lazy(() => import('./components/views/DrawingsView').then(m => ({ default: m.DrawingsView })));
+const FlowchartView = React.lazy(() => import('./components/views/FlowchartView').then(m => ({ default: m.FlowchartView })));
+const ChangelogView = React.lazy(() => import('./components/views/ChangelogView').then(m => ({ default: m.ChangelogView })));
+const BackupsView = React.lazy(() => import('./components/views/BackupsView').then(m => ({ default: m.BackupsView })));
+const TrashView = React.lazy(() => import('./components/views/TrashView').then(m => ({ default: m.TrashView })));
+
+// Lightweight views — eager loaded
 import { WelcomeView } from './components/views/WelcomeView';
-import { FlowchartView } from './components/views/FlowchartView';
 import { ForbiddenView } from "./components/views/ForbiddenView";
 
 // Layout Components
@@ -58,11 +61,6 @@ import { useUpdateCheck } from './hooks/useUpdateCheck';
 import { useImageExporter } from './hooks/useImageExporter';
 import { useBroadcastChannel, BroadcastMessageType } from './hooks/useBroadcastChannel';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
-
-
-// Views
-import { ChangelogView } from './components/views/ChangelogView';
-import { BackupsView } from './components/views/BackupsView';
 
 // Lib & Types
 import { localPersistence } from './lib/localPersistence';
@@ -1379,6 +1377,14 @@ function AppContent() {
         />
 
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-h-0 overflow-hidden" style={{ isolation: 'isolate' }}>
+          <React.Suspense fallback={
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <span className="text-xs text-muted-foreground/60 animate-pulse">Loading...</span>
+              </div>
+            </div>
+          }>
           {!hasActiveItem && view !== 'trash' && view !== 'changelog' && view !== 'backups' && !isPublicView ? <WelcomeView /> : (
             <>
               {view === 'erd' && (isPublicView ? publicData : activeDiagramId) && (
@@ -1457,6 +1463,7 @@ function AppContent() {
               isLoading={isTrashLoading}
             />
           )}
+          </React.Suspense>
         </div>
 
         <FeedbackDialog />

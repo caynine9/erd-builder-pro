@@ -11,6 +11,7 @@ import {
   Edge,
   MarkerType
 } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { Plus, Download, ChevronDown, Database, Undo2, Redo2, Image as ImageIcon, FileCode, Upload, FileText, Loader2 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";

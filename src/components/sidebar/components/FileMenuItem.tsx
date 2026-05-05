@@ -35,7 +35,7 @@ interface FileMenuItemProps {
   setIsDeleteConfirmOpen: (open: boolean) => void
 }
 
-export function FileMenuItem({
+export const FileMenuItem = React.memo(function FileMenuItem({
   item,
   type,
   icon: Icon,
@@ -103,4 +103,4 @@ export function FileMenuItem({
       </DropdownMenu>
     </SidebarMenuSubItem>
   )
-}
+})
