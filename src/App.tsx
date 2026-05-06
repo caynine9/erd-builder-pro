@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { 
   ReactFlowProvider,
   Node,
-  Edge
+  Edge,
 } from '@xyflow/react';
 import { copyMarkdownToClipboard } from './lib/markdownUtils';
 
@@ -13,7 +13,6 @@ import { Login } from './components/Login';
 import { MainHeader } from './components/MainHeader';
 import { DeleteConfirmModal } from './components/modals/DeleteConfirmModal';
 import { ImportNoteModal } from './components/modals/ImportNoteModal';
-import { ERDImportModal } from './components/modals/ERDImportModal';
 import { ExportNoteModal } from './components/modals/ExportNoteModal';
 import { NoteExporter } from './lib/exporters/note-exporter';
 import { MoveToTrashAlert } from './components/modals/MoveToTrashAlert';
@@ -23,18 +22,9 @@ import { DuplicateDocumentDialog } from './components/modals/DuplicateDocumentDi
 import { TablePropertiesModal } from './components/modals/TablePropertiesModal';
 import { RelationshipPropertiesModal } from './components/modals/RelationshipPropertiesModal';
 
-// Lazy-loaded Views (heavy bundles — React Flow, Excalidraw, TipTap)
-const ERDView = React.lazy(() => import('./components/views/ERDView').then(m => ({ default: m.ERDView })));
-const NotesView = React.lazy(() => import('./components/views/NotesView').then(m => ({ default: m.NotesView })));
-const DrawingsView = React.lazy(() => import('./components/views/DrawingsView').then(m => ({ default: m.DrawingsView })));
-const FlowchartView = React.lazy(() => import('./components/views/FlowchartView').then(m => ({ default: m.FlowchartView })));
-const ChangelogView = React.lazy(() => import('./components/views/ChangelogView').then(m => ({ default: m.ChangelogView })));
-const BackupsView = React.lazy(() => import('./components/views/BackupsView').then(m => ({ default: m.BackupsView })));
-const TrashView = React.lazy(() => import('./components/views/TrashView').then(m => ({ default: m.TrashView })));
 
-// Lightweight views — eager loaded
-import { WelcomeView } from './components/views/WelcomeView';
 import { ForbiddenView } from "./components/views/ForbiddenView";
+import { WorkspaceContent } from '@/components/layout/WorkspaceContent';
 
 // Layout Components
 import { OfflineOverlay } from './components/layout/OfflineOverlay';
@@ -1259,6 +1249,123 @@ function AppContent() {
 
 
 
+  // 🛡️ Stabilized callbacks for WorkspaceContent memo boundary
+  const handleNodeClick = useCallback((e: React.MouseEvent, n: Node) => {
+    if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) setSelectedNodeId(n.id);
+  }, [isPublicView, setSelectedNodeId]);
+
+  const handleNodeDoubleClick = useCallback((e: React.MouseEvent, n: Node) => {
+    if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) {
+      setSelectedNodeId(n.id);
+      setIsTablePropertiesOpen(true);
+    }
+  }, [isPublicView, setSelectedNodeId, setIsTablePropertiesOpen]);
+
+  const handleEdgeClick = useCallback((_: any, e: Edge) => {
+    if (!isPublicView) setSelectedEdgeId(e.id);
+  }, [isPublicView, setSelectedEdgeId]);
+
+  const handlePaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+  }, [setSelectedNodeId, setSelectedEdgeId]);
+
+  const handleMove = useCallback((_: any, v: any) => {
+    viewportRef.current = v;
+  }, [viewportRef]);
+
+  const handleOpenImportModal = useCallback(() => {
+    setIsImportModalOpen(true);
+  }, [setIsImportModalOpen]);
+
+  const handleWorkspaceExportSQL = useCallback((dialect: 'postgresql' | 'mysql') => {
+    const target = isPublicView ? publicData : diagrams.find(f => f.id === activeDiagramId);
+    if (target) handleExportSQL(dialect, target, nodes, edges);
+  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportSQL, nodes, edges]);
+
+  const handleWorkspaceExportPDF = useCallback(() => {
+    const targetName = isPublicView
+      ? (publicData?.name || 'Shared')
+      : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
+    handleExportPDF(targetName);
+  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportPDF]);
+
+  const handleWorkspaceExportImage = useCallback(() => {
+    const targetName = isPublicView
+      ? (publicData?.name || 'Shared')
+      : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
+    handleExportImage(targetName);
+  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportImage]);
+
+  // 🛡️ TrashView stabilized callbacks
+  const handleTrashRestoreProject = useCallback(async (id: any) => {
+    await restoreProject(id);
+    await fetchTrash();
+    await fetchProjects();
+  }, [restoreProject, fetchTrash, fetchProjects]);
+
+  const handleTrashRestoreDiagram = useCallback(async (id: any) => {
+    await restoreDiagram(id);
+    await fetchTrash();
+    await fetchProjects();
+    await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
+  }, [restoreDiagram, fetchTrash, fetchProjects, fetchDiagrams, debouncedSearchQuery]);
+
+  const handleTrashRestoreNote = useCallback(async (id: any) => {
+    await restoreNote(id);
+    await fetchTrash();
+    await fetchProjects();
+    await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
+  }, [restoreNote, fetchTrash, fetchProjects, fetchNotes, debouncedSearchQuery]);
+
+  const handleTrashRestoreDrawing = useCallback(async (id: any) => {
+    await restoreDrawing(id);
+    await fetchTrash();
+    await fetchProjects();
+    await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
+  }, [restoreDrawing, fetchTrash, fetchProjects, fetchDrawings, debouncedSearchQuery]);
+
+  const handleTrashRestoreFlowchart = useCallback(async (id: any) => {
+    await restoreFlowchart(id);
+    await fetchTrash();
+    await fetchProjects();
+    await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
+  }, [restoreFlowchart, fetchTrash, fetchProjects, fetchFlowcharts, debouncedSearchQuery]);
+
+  const handleTrashProjectPermanentDelete = useCallback((id: any) => {
+    setItemToDelete({ id, type: 'project' });
+    setIsPermanentDeleteConfirmOpen(true);
+  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
+
+  const handleTrashDiagramPermanentDelete = useCallback((id: any) => {
+    setItemToDelete({ id, type: 'erd' });
+    setIsPermanentDeleteConfirmOpen(true);
+  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
+
+  const handleTrashNotePermanentDelete = useCallback((id: any) => {
+    setItemToDelete({ id, type: 'notes' });
+    setIsPermanentDeleteConfirmOpen(true);
+  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
+
+  const handleTrashDrawingPermanentDelete = useCallback((id: any) => {
+    setItemToDelete({ id, type: 'drawings' });
+    setIsPermanentDeleteConfirmOpen(true);
+  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
+
+  const handleTrashFlowchartPermanentDelete = useCallback((id: any) => {
+    setItemToDelete({ id, type: 'flowchart' as any });
+    setIsPermanentDeleteConfirmOpen(true);
+  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
+
+  // Compute loading state for current view only (avoids passing view-specific loading to WorkspaceContent)
+  const workspaceIsLoading = useMemo(() => {
+    if (view === 'erd') return isDiagramsLoading || isERDItemLoading;
+    if (view === 'notes') return isNotesLoading || isNoteItemLoading;
+    if (view === 'drawings') return isDrawingsLoading || isDrawingItemLoading;
+    if (view === 'flowchart') return isFlowchartsLoading || isFlowchartItemLoading;
+    return false;
+  }, [view, isDiagramsLoading, isERDItemLoading, isNotesLoading, isNoteItemLoading, isDrawingsLoading, isDrawingItemLoading, isFlowchartsLoading, isFlowchartItemLoading]);
+
   if (isAuthenticated === null && !isPublicView) return <AppInitialization type="init" />;
   if (isPublicLoading) return <AppInitialization type="public" view={view} />;
 
@@ -1274,7 +1381,6 @@ function AppContent() {
   }
 
   if (!isAuthenticated && !isPublicView) return <Login onLogin={() => checkAuth()} onGuestLogin={handleGuestLogin} />;
-
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -1377,96 +1483,80 @@ function AppContent() {
           }}
         />
 
-        <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-h-0 overflow-hidden" style={{ isolation: 'isolate' }}>
-          <React.Suspense fallback={
-            <div className="flex-1 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <span className="text-xs text-muted-foreground/60 animate-pulse">Loading...</span>
-              </div>
-            </div>
-          }>
-          {!hasActiveItem && view !== 'trash' && view !== 'changelog' && view !== 'backups' && !isPublicView ? <WelcomeView /> : (
-            <>
-              {view === 'erd' && (isPublicView ? publicData : activeDiagramId) && (
-                <ERDView 
-                  isLoading={isDiagramsLoading || isERDItemLoading}
-                  nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect}
-                  onNodeClick={(e, n) => { if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) setSelectedNodeId(n.id); }}
-                  onNodeDoubleClick={(e, n) => { if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) { setSelectedNodeId(n.id); setIsTablePropertiesOpen(true); } }}
-                  onEdgeClick={(_, e) => { if (!isPublicView) setSelectedEdgeId(e.id); }}
-                  onPaneClick={() => { setSelectedNodeId(null); setSelectedEdgeId(null); }}
-                  onMove={(_, v) => { viewportRef.current = v; }}
-                  addEntity={addEntity}
-                  openImportModal={() => setIsImportModalOpen(true)}
-                  handleExportSQL={dialect => {
-                    const target = isPublicView ? publicData : diagrams.find(f => f.id === activeDiagramId);
-                    if (target) handleExportSQL(dialect, target, nodes, edges);
-                  }}
-                  handleExportPDF={() => {
-                    const targetName = isPublicView ? (publicData?.name || 'Shared') : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
-                    handleExportPDF(targetName);
-                  }}
-                  handleExportImage={() => {
-                    const targetName = isPublicView ? (publicData?.name || 'Shared') : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
-                    handleExportImage(targetName);
-                  }}
-                  isReadOnly={isPublicView}
-                  undo={undo}
-                  redo={redo}
-                  canUndo={canUndo}
-                  canRedo={canRedo}
-                  takeSnapshot={takeSnapshot}
-                  selectedNodeId={selectedNodeId}
-                  onNodeDragStop={onNodeDragStop}
-                />
-              )}
-              {view === 'backups' && (
-                <BackupsView />
-              )}
-              {view === 'erd' && (
-                <ERDImportModal 
-                  isOpen={isImportModalOpen}
-                  onOpenChange={setIsImportModalOpen}
-                  nodes={nodes}
-                  edges={edges}
-                  setNodes={setNodes}
-                  setEdges={setEdges}
-                  activeDiagramId={activeDiagramId}
-                  takeSnapshot={takeSnapshot}
-                  saveDiagram={saveDiagram}
-                  triggerDebouncedSync={triggerDebouncedSync}
-                  broadcastMessage={broadcastMessage}
-                  setIsLocalSaving={setIsLocalSaving}
-                  viewportRef={viewportRef}
-                  lastLoadedDiagramIdRef={lastLoadedDiagramIdRef}
-                />
-              )}
-              {view === 'notes' && activeNote && <NotesView isLoading={isNotesLoading || isNoteItemLoading} activeNoteId={isPublicView ? null : activeNoteId} activeNote={activeNote} saveNote={saveNote} handleNoteChange={handleNoteChange} deleteNote={deleteNote} isReadOnly={isPublicView} />}
-              {view === 'drawings' && activeDrawing && <DrawingsView isLoading={isDrawingsLoading || isDrawingItemLoading} activeDrawingId={isPublicView ? null : activeDrawingId} activeDrawing={activeDrawing} saveDrawing={saveDrawing} handleDrawingChange={handleDrawingChange} deleteDrawing={deleteDrawing} isReadOnly={isPublicView} />}
-              {view === 'flowchart' && activeFlowchart && <FlowchartView isLoading={isFlowchartsLoading || isFlowchartItemLoading} activeFlowchartId={activeFlowchartId} activeFlowchart={activeFlowchart} handleFlowchartChange={handleFlowchartChange} isReadOnly={isPublicView} />}
-              {view === 'changelog' && <ChangelogView />}
-            </>
-          )}
-          {view === 'trash' && (
-            <TrashView 
-              trashData={trashData} 
-              restoreProject={async (id) => { await restoreProject(id); await fetchTrash(); await fetchProjects(); }} 
-              restoreDiagram={async (id) => { await restoreDiagram(id); await fetchTrash(); await fetchProjects(); await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreNote={async (id) => { await restoreNote(id); await fetchTrash(); await fetchProjects(); await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreDrawing={async (id) => { await restoreDrawing(id); await fetchTrash(); await fetchProjects(); await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              restoreFlowchart={async (id) => { await restoreFlowchart(id); await fetchTrash(); await fetchProjects(); await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true }); }} 
-              fetchTrash={fetchTrash} 
-              handleProjectPermanentDelete={id => { setItemToDelete({ id, type: 'project' }); setIsPermanentDeleteConfirmOpen(true); }} 
-              handleDiagramPermanentDelete={id => { setItemToDelete({ id, type: 'erd' }); setIsPermanentDeleteConfirmOpen(true); }} 
-              handleNotePermanentDelete={id => { setItemToDelete({ id, type: 'notes' }); setIsPermanentDeleteConfirmOpen(true); }} 
-              handleDrawingPermanentDelete={id => { setItemToDelete({ id, type: 'drawings' }); setIsPermanentDeleteConfirmOpen(true); }} 
-              handleFlowchartPermanentDelete={id => { setItemToDelete({ id, type: 'flowchart' as any }); setIsPermanentDeleteConfirmOpen(true); }} 
-              isLoading={isTrashLoading}
-            />
-          )}
-          </React.Suspense>
-        </div>
+        <WorkspaceContent 
+          view={view}
+          nodes={nodes}
+          edges={edges}
+          activeDiagramId={activeDiagramId}
+          isPublicView={isPublicView}
+          publicData={publicData}
+          isLoading={workspaceIsLoading}
+          isReadOnly={isPublicView}
+          hasActiveItem={hasActiveItem}
+
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          selectedNodeId={selectedNodeId}
+          addEntity={addEntity}
+          undo={undo}
+          redo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          takeSnapshot={takeSnapshot}
+          onNodeDragStop={onNodeDragStop}
+
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          onEdgeClick={handleEdgeClick}
+          onPaneClick={handlePaneClick}
+          onMove={handleMove}
+          openImportModal={handleOpenImportModal}
+          handleExportSQL={handleWorkspaceExportSQL}
+          handleExportPDF={handleWorkspaceExportPDF}
+          handleExportImage={handleWorkspaceExportImage}
+
+          isImportModalOpen={isImportModalOpen}
+          setIsImportModalOpen={setIsImportModalOpen}
+          setNodes={setNodes}
+          setEdges={setEdges}
+          saveDiagram={saveDiagram}
+          triggerDebouncedSync={triggerDebouncedSync}
+          broadcastMessage={broadcastMessage}
+          setIsLocalSaving={setIsLocalSaving}
+          viewportRef={viewportRef}
+          lastLoadedDiagramIdRef={lastLoadedDiagramIdRef}
+
+          activeNote={activeNote}
+          activeNoteId={activeNoteId}
+          saveNote={saveNote}
+          handleNoteChange={handleNoteChange}
+          deleteNote={deleteNote}
+
+          activeDrawing={activeDrawing}
+          activeDrawingId={activeDrawingId}
+          saveDrawing={saveDrawing}
+          handleDrawingChange={handleDrawingChange}
+          deleteDrawing={deleteDrawing}
+
+          activeFlowchart={activeFlowchart}
+          activeFlowchartId={activeFlowchartId}
+          handleFlowchartChange={handleFlowchartChange}
+
+          trashData={trashData}
+          isTrashLoading={isTrashLoading}
+          restoreProject={handleTrashRestoreProject}
+          restoreDiagram={handleTrashRestoreDiagram}
+          restoreNote={handleTrashRestoreNote}
+          restoreDrawing={handleTrashRestoreDrawing}
+          restoreFlowchart={handleTrashRestoreFlowchart}
+          handleProjectPermanentDelete={handleTrashProjectPermanentDelete}
+          handleDiagramPermanentDelete={handleTrashDiagramPermanentDelete}
+          handleNotePermanentDelete={handleTrashNotePermanentDelete}
+          handleDrawingPermanentDelete={handleTrashDrawingPermanentDelete}
+          handleFlowchartPermanentDelete={handleTrashFlowchartPermanentDelete}
+          fetchTrash={fetchTrash}
+        />
 
         <FeedbackDialog />
 
