@@ -30,7 +30,6 @@ type EntityNodeProps = NodeProps<Node<Entity>>;
 
 const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [hoveredColumnId, setHoveredColumnId] = useState<string | null>(null);
   const [showSqlModal, setShowSqlModal] = useState(false);
   const updateNodeInternals = useUpdateNodeInternals();
 
@@ -69,10 +68,9 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
   };
 
   // Eraser.io style colors based on data.color
-  const { borderColor, headerBg, rowHoverBg, typeColor } = useMemo(() => ({
+  const { borderColor, headerBg, typeColor } = useMemo(() => ({
     borderColor: data.color,
     headerBg: `${data.color}20`, // 12% opacity
-    rowHoverBg: `${data.color}10`, // 6% opacity
     typeColor: data.color,
   }), [data.color]);
 
@@ -144,49 +142,34 @@ const EntityNode = ({ data, id, selected }: EntityNodeProps) => {
                   "group relative px-3 py-2 flex items-center justify-between transition-colors border-b last:border-b-0 border-white/5",
                   "hover:bg-white/5"
                 )}
-                style={{ '--hover-bg': rowHoverBg } as React.CSSProperties}
-                onMouseEnter={() => setHoveredColumnId(col.id)}
-                onMouseLeave={() => setHoveredColumnId(null)}
               >
-                {/* Universal Column Handles (Bidirectional) - VISIBLE ON HOVER ONLY */}
+                {/* Column Handles - VISIBLE ON ROW HOVER ONLY via CSS */}
                 <Handle
                   type="target"
                   position={Position.Left}
                   id={`col-${col.id}-target`}
-                  className={cn(
-                    "!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150",
-                    hoveredColumnId === col.id ? "opacity-100" : "opacity-0"
-                  )}
+                  className="!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150 opacity-0 group-hover:opacity-100"
                   style={{ top: '50%', left: '-4.5px', transform: 'translateY(-50%)', backgroundColor: borderColor, zIndex: 50 }}
                 />
                 <Handle
                   type="source"
                   position={Position.Left}
                   id={`col-${col.id}-source-l`}
-                  className={cn(
-                    "!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150",
-                    hoveredColumnId === col.id ? "opacity-100" : "opacity-0"
-                  )}
+                  className="!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150 opacity-0 group-hover:opacity-100"
                   style={{ top: '50%', left: '-4.5px', transform: 'translateY(-50%)', backgroundColor: borderColor, zIndex: 50 }}
                 />
                 <Handle
                   type="source"
                   position={Position.Right}
                   id={`col-${col.id}-source`}
-                  className={cn(
-                    "!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150",
-                    hoveredColumnId === col.id ? "opacity-100" : "opacity-0"
-                  )}
+                  className="!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150 opacity-0 group-hover:opacity-100"
                   style={{ top: '50%', right: '-4.5px', transform: 'translateY(-50%)', backgroundColor: borderColor, zIndex: 50 }}
                 />
                 <Handle
                   type="target"
                   position={Position.Right}
                   id={`col-${col.id}-target-r`}
-                  className={cn(
-                    "!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150",
-                    hoveredColumnId === col.id ? "opacity-100" : "opacity-0"
-                  )}
+                  className="!w-1.5 !h-1.5 !border-none cursor-crosshair transition-opacity duration-150 opacity-0 group-hover:opacity-100"
                   style={{ top: '50%', right: '-4.5px', transform: 'translateY(-50%)', backgroundColor: borderColor, zIndex: 50 }}
                 />
 

@@ -113,6 +113,7 @@ export function TiptapEditor({ content, onChange, isReadOnly = false }: TiptapEd
     ToggleExtension,
     StarterKit.configure({
       link: false,
+      underline: false,
     }),
     TrailingNode,
     ImageResize.configure({

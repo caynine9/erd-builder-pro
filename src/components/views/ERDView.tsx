@@ -11,6 +11,7 @@ import {
   Edge,
   MarkerType
 } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { Plus, Download, ChevronDown, Database, Undo2, Redo2, Image as ImageIcon, FileCode, Upload, FileText, Loader2 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ interface ERDViewProps {
   addEntity: () => void;
   openImportModal: () => void;
   handleExportSQL: (dialect: 'postgresql' | 'mysql') => void;
+  onNodeDragStop?: () => void;
 
   handleExportPDF: () => void;
   handleExportImage: () => void;
@@ -77,7 +79,8 @@ const ERDViewComponent = ({
   canRedo,
   takeSnapshot,
   isLoading = false,
-  selectedNodeId
+  selectedNodeId,
+  onNodeDragStop
 }: ERDViewProps) => {
   const showLoadingOverlay = isLoading && nodes.length === 0;
 
@@ -177,7 +180,7 @@ const ERDViewComponent = ({
           nodesDraggable={!isReadOnly}
           nodesConnectable={!isReadOnly}
           elementsSelectable={!isReadOnly}
-          onNodeDragStop={() => takeSnapshot && takeSnapshot(nodes, edges)}
+          onNodeDragStop={onNodeDragStop}
           minZoom={0.1}
           maxZoom={2.5}
           defaultEdgeOptions={{

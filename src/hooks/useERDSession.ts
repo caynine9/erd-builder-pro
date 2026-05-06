@@ -37,7 +37,7 @@ export function useERDSession(
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const viewportRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 });
-  const { setViewport } = useReactFlow();
+  const { setViewport, getNodes, getEdges } = useReactFlow();
 
   // Wrapped onNodesChange to broadcast movement
   const onNodesChangeWrapped = useCallback((changes: any) => {
@@ -168,14 +168,14 @@ export function useERDSession(
         let tHandle = r.target_handle;
 
         if (!sHandle && sourceEntity && targetEntity) {
-          const sx = Number(sourceEntity.x);
-          const tx = Number(targetEntity.x);
+          const sx = Number(sourceEntity.x) || 0;
+          const tx = Number(targetEntity.x) || 0;
           sHandle = sx < tx ? `col-${r.source_column_id}-source` : `col-${r.source_column_id}-source-l`;
         }
 
         if (!tHandle && sourceEntity && targetEntity) {
-          const sx = Number(sourceEntity.x);
-          const tx = Number(targetEntity.x);
+          const sx = Number(sourceEntity.x) || 0;
+          const tx = Number(targetEntity.x) || 0;
           tHandle = sx < tx ? `col-${r.target_column_id}-target` : `col-${r.target_column_id}-target-r`;
         }
 
@@ -379,16 +379,34 @@ export function useERDSession(
         
         if (!sourceColId || !targetColId) return edge;
 
-        const sx = sourceNode.position.x;
-        const tx = targetNode.position.x;
-        
-        const newSourceHandle = sx < tx ? `col-${sourceColId}-source` : `col-${sourceColId}-source-l`;
-        const newTargetHandle = sx < tx ? `col-${targetColId}-target` : `col-${targetColId}-target-r`;
-        
-        if (edge.sourceHandle !== newSourceHandle || edge.targetHandle !== newTargetHandle) {
+        const sourceCol = sourceNode.data.columns.find((c: any) => c.id === sourceColId);
+        const targetCol = targetNode.data.columns.find((c: any) => c.id === targetColId);
+
+        // Step 1: Fix direction — arrow should point TO the PK column.
+        // If source column is PK and target is NOT PK, edge direction is reversed.
+        if (sourceCol && targetCol && sourceCol.is_pk && !targetCol.is_pk) {
           isChanged = true;
-          return { ...edge, sourceHandle: newSourceHandle, targetHandle: newTargetHandle };
+          return {
+            ...edge,
+            source: edge.target,
+            target: edge.source,
+            sourceHandle: `col-${targetColId}-source`,
+            targetHandle: `col-${sourceColId}-target`,
+          };
         }
+        
+        // Step 2: Smart positioning — choose the nearest handle based on node positions.
+        // For edge paths to look clean, the handle on the SIDE FACING the other node is used.
+        const sx = sourceNode.position.x || 0;
+        const tx = targetNode.position.x || 0;
+        const smartSourceHandle = sx < tx ? `col-${sourceColId}-source` : `col-${sourceColId}-source-l`;
+        const smartTargetHandle = sx < tx ? `col-${targetColId}-target` : `col-${targetColId}-target-r`;
+        
+        if (edge.sourceHandle !== smartSourceHandle || edge.targetHandle !== smartTargetHandle) {
+          isChanged = true;
+          return { ...edge, sourceHandle: smartSourceHandle, targetHandle: smartTargetHandle };
+        }
+        
         return edge;
       });
       
@@ -429,6 +447,39 @@ export function useERDSession(
     }
   }, [nodes, edges, setNodes, setEdges]);
 
+  // Auto-reposition edge handles when a node finishes dragging
+  const onNodeDragStop = useCallback(() => {
+    const currentNodes = getNodes();
+    const currentEdges = getEdges();
+    
+    setEdges(eds => {
+      let isChanged = false;
+      const newEds = eds.map(edge => {
+        const sourceNode = currentNodes.find(n => n.id === edge.source);
+        const targetNode = currentNodes.find(n => n.id === edge.target);
+        if (!sourceNode || !targetNode) return edge;
+
+        const sourceColId = edge.sourceHandle?.replace(/^col-/, '').replace(/-(source|target)(-(l|r))?$/, '');
+        const targetColId = edge.targetHandle?.replace(/^col-/, '').replace(/-(source|target)(-(l|r))?$/, '');
+        if (!sourceColId || !targetColId) return edge;
+
+        const sx = sourceNode.position.x || 0;
+        const tx = targetNode.position.x || 0;
+        const smartSourceHandle = sx < tx ? `col-${sourceColId}-source` : `col-${sourceColId}-source-l`;
+        const smartTargetHandle = sx < tx ? `col-${targetColId}-target` : `col-${targetColId}-target-r`;
+
+        if (edge.sourceHandle !== smartSourceHandle || edge.targetHandle !== smartTargetHandle) {
+          isChanged = true;
+          return { ...edge, sourceHandle: smartSourceHandle, targetHandle: smartTargetHandle };
+        }
+        return edge;
+      });
+      return isChanged ? newEds : eds;
+    });
+    
+    takeSnapshot(currentNodes as Node<Entity>[], currentEdges);
+  }, [setEdges, takeSnapshot, getNodes, getEdges]);
+
   return {
     nodes, setNodes, onNodesChange: onNodesChangeWrapped,
     edges, setEdges, onEdgesChange: onEdgesChangeWrapped,
@@ -448,6 +499,7 @@ export function useERDSession(
     canRedo,
     takeSnapshot,
     isItemLoading,
-    saveCounter
+    saveCounter,
+    onNodeDragStop
   };
 }

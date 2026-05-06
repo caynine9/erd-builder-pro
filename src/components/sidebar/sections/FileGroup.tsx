@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useRef, useState, useEffect } from "react"
 import { Plus, MoreHorizontal, Database, StickyNote, PenTool, Network } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -49,6 +50,21 @@ export function FileGroup({
   setDeletingFile,
   setIsDeleteConfirmOpen
 }: FileGroupProps) {
+  const [visibleCount, setVisibleCount] = useState(25)
+  const [showAll, setShowAll] = useState(false)
+
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (showAll || files.length <= visibleCount) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisibleCount(prev => Math.min(prev + 25, files.length))
+      }
+    }, { rootMargin: '100px' })
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [showAll, visibleCount, files.length])
+
   const getIcon = () => {
     switch (sidebarView) {
       case 'erd': return Database
@@ -71,6 +87,11 @@ export function FileGroup({
 
   const shared = files.filter(f => f.is_public)
   const privateItems = files.filter(f => !f.is_public)
+  const hasTruncated = files.length > visibleCount
+  const displayedShared = showAll ? shared : shared.slice(0, Math.min(shared.length, visibleCount))
+  const remainingVisible = Math.max(0, (showAll ? Infinity : visibleCount) - displayedShared.length)
+  const displayedPrivate = showAll ? privateItems : privateItems.slice(0, remainingVisible)
+
   const Icon = getIcon()
 
   return (
@@ -97,7 +118,7 @@ export function FileGroup({
           <>
             {/* Shared Section */}
             <div className="px-2 pt-4 pb-1 text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider">Shared</div>
-            {shared.length > 0 ? shared.map(file => (
+            {displayedShared.length > 0 ? displayedShared.map(file => (
               <FileMenuItem 
                 key={file.id}
                 item={file}
@@ -113,14 +134,16 @@ export function FileGroup({
                 setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
               />
             )) : (
-              <div className="px-5 py-2 text-[11px] text-muted-foreground/50 italic">No shared items found</div>
+              shared.length === 0 && (
+                <div className="px-5 py-2 text-[11px] text-muted-foreground/50 italic">No shared items found</div>
+              )
             )}
 
             {/* Private Section */}
-            {privateItems.length > 0 && (
+            {displayedPrivate.length > 0 && (
               <>
                 <div className="px-2 pt-4 pb-1 text-[10px] uppercase font-semibold text-muted-foreground/70 tracking-wider">Private</div>
-                {privateItems.map(file => (
+                {displayedPrivate.map(file => (
                   <FileMenuItem 
                     key={file.id}
                     item={file}
@@ -139,6 +162,34 @@ export function FileGroup({
               </>
             )}
           </>
+        )}
+
+        {hasTruncated && !showAll && (
+          <SidebarMenuItem>
+            <div ref={loadMoreRef} className="flex items-center justify-center py-2">
+              <span className="text-[10px] text-muted-foreground/50 animate-pulse">Loading more...</span>
+            </div>
+          </SidebarMenuItem>
+        )}
+        {hasTruncated && !showAll && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="text-[11px] text-muted-foreground/60 hover:text-foreground justify-center cursor-pointer"
+              onClick={() => setShowAll(true)}
+            >
+              Show all {files.length} items
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
+        {hasTruncated && showAll && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="text-[11px] text-muted-foreground/60 hover:text-foreground justify-center cursor-pointer"
+              onClick={() => { setVisibleCount(25); setShowAll(false) }}
+            >
+              Show less
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         )}
 
         {hasMore && (

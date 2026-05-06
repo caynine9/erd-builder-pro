@@ -8,7 +8,6 @@ import {
   useEdgesState,
   addEdge,
   Connection,
-  Edge,
   Node,
   BackgroundVariant,
   MarkerType,

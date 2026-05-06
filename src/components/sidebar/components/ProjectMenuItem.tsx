@@ -85,15 +85,39 @@ export function ProjectMenuItem({
 }: ProjectMenuItemProps) {
   const [isOpen, setIsOpen] = React.useState(item.isActive)
   const isManualToggle = React.useRef(false)
-
+  const [visibleCount, setVisibleCount] = React.useState(25)
+  const [showAll, setShowAll] = React.useState(false)
+  const hasTruncated = files.length > visibleCount
+ 
   // Sync open state with active project
   React.useEffect(() => {
     if (item.isActive && !isManualToggle.current) {
       setIsOpen(true)
     }
-    // Reset the manual toggle flag after sync is evaluated
     isManualToggle.current = false
   }, [item.isActive])
+  
+  // Reset visible count when files change or collapsible closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setVisibleCount(25)
+      setShowAll(false)
+    }
+  }, [isOpen])
+
+  const displayedFiles = showAll ? files : files.slice(0, visibleCount)
+  
+  const loadMoreRef = React.useRef(null)
+  React.useEffect(() => {
+    if (!isOpen || showAll || files.length <= visibleCount) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisibleCount(prev => Math.min(prev + 25, files.length))
+      }
+    }, { rootMargin: '100px' })
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current)
+    return () => observer.disconnect()
+  }, [isOpen, showAll, visibleCount, files.length])
 
   return (
     <Collapsible
@@ -180,7 +204,7 @@ export function ProjectMenuItem({
 
         <CollapsibleContent>
           <SidebarMenuSub className="ml-3.5 mr-0 pl-2.5 pr-0">
-            {files.map(file => (
+            {displayedFiles.map(file => (
               <FileMenuItem 
                 key={file.id}
                 item={file}
@@ -195,6 +219,35 @@ export function ProjectMenuItem({
                 setIsDeleteConfirmOpen={setIsDeleteConfirmOpen}
               />
             ))}
+            {hasTruncated && !showAll && (
+              <SidebarMenuSubItem>
+                <div ref={loadMoreRef} className="flex items-center justify-center py-2">
+                  <span className="text-[10px] text-muted-foreground/50 animate-pulse">
+                    Loading more...
+                  </span>
+                </div>
+              </SidebarMenuSubItem>
+            )}
+            {hasTruncated && !showAll && (
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                  className="text-[11px] text-muted-foreground/60 hover:text-foreground justify-center cursor-pointer"
+                  onClick={() => setShowAll(true)}
+                >
+                  Show all {files.length} items
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            )}
+            {hasTruncated && showAll && (
+              <SidebarMenuSubItem>
+                <SidebarMenuSubButton
+                  className="text-[11px] text-muted-foreground/60 hover:text-foreground justify-center cursor-pointer"
+                  onClick={() => { setVisibleCount(25); setShowAll(false) }}
+                >
+                  Show less
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            )}
           </SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
