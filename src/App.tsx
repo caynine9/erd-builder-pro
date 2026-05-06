@@ -52,6 +52,8 @@ import { useImageExporter } from './hooks/useImageExporter';
 import { useBroadcastChannel, BroadcastMessageType } from './hooks/useBroadcastChannel';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { useSidebarHandlers } from './hooks/useSidebarHandlers';
+import { useTrashHandlers } from './hooks/useTrashHandlers';
+import { useWorkspaceCallbacks } from './hooks/useWorkspaceCallbacks';
 
 // Lib & Types
 import { localPersistence } from './lib/localPersistence';
@@ -63,7 +65,6 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-
 
 // Helper to check for share routes
 const getSharePathInfo = () => {
@@ -142,11 +143,6 @@ function AppContent() {
   const notesSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const drawingsSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const flowchartsSaveTimeout = useRef<NodeJS.Timeout | null>(null);
-
-
-
-
-
 
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
@@ -284,7 +280,6 @@ function AppContent() {
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
 
-
   // Handlers
   // Computed Values
   const {
@@ -294,7 +289,6 @@ function AppContent() {
     activeNote,
     activeDrawing,
     activeFlowchart,
-    activeDiagram,
     featureLabel,
     activeFileName,
     activeProjectName,
@@ -1158,124 +1152,48 @@ function AppContent() {
     }
   };
 
+  const {
+    handleNodeClick,
+    handleNodeDoubleClick,
+    handleEdgeClick,
+    handlePaneClick,
+    handleMove,
+    handleOpenImportModal,
+    handleWorkspaceExportSQL,
+    handleWorkspaceExportPDF,
+    handleWorkspaceExportImage,
+    workspaceIsLoading,
+  } = useWorkspaceCallbacks({
+    isPublicView, setSelectedNodeId, setSelectedEdgeId,
+    setIsTablePropertiesOpen, setIsImportModalOpen,
+    viewportRef,
+    publicData, diagrams, activeDiagramId,
+    handleExportSQL, handleExportPDF, handleExportImage,
+    nodes, edges,
+    view,
+    isDiagramsLoading, isERDItemLoading,
+    isNotesLoading, isNoteItemLoading,
+    isDrawingsLoading, isDrawingItemLoading,
+    isFlowchartsLoading, isFlowchartItemLoading,
+  });
 
-
-  // 🛡️ Stabilized callbacks for WorkspaceContent memo boundary
-  const handleNodeClick = useCallback((e: React.MouseEvent, n: Node) => {
-    if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) setSelectedNodeId(n.id);
-  }, [isPublicView, setSelectedNodeId]);
-
-  const handleNodeDoubleClick = useCallback((e: React.MouseEvent, n: Node) => {
-    if (!isPublicView && !(e.target as HTMLElement).closest('.nodrag')) {
-      setSelectedNodeId(n.id);
-      setIsTablePropertiesOpen(true);
-    }
-  }, [isPublicView, setSelectedNodeId, setIsTablePropertiesOpen]);
-
-  const handleEdgeClick = useCallback((_: any, e: Edge) => {
-    if (!isPublicView) setSelectedEdgeId(e.id);
-  }, [isPublicView, setSelectedEdgeId]);
-
-  const handlePaneClick = useCallback(() => {
-    setSelectedNodeId(null);
-    setSelectedEdgeId(null);
-  }, [setSelectedNodeId, setSelectedEdgeId]);
-
-  const handleMove = useCallback((_: any, v: any) => {
-    viewportRef.current = v;
-  }, [viewportRef]);
-
-  const handleOpenImportModal = useCallback(() => {
-    setIsImportModalOpen(true);
-  }, [setIsImportModalOpen]);
-
-  const handleWorkspaceExportSQL = useCallback((dialect: 'postgresql' | 'mysql') => {
-    const target = isPublicView ? publicData : diagrams.find(f => f.id === activeDiagramId);
-    if (target) handleExportSQL(dialect, target, nodes, edges);
-  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportSQL, nodes, edges]);
-
-  const handleWorkspaceExportPDF = useCallback(() => {
-    const targetName = isPublicView
-      ? (publicData?.name || 'Shared')
-      : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
-    handleExportPDF(targetName);
-  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportPDF]);
-
-  const handleWorkspaceExportImage = useCallback(() => {
-    const targetName = isPublicView
-      ? (publicData?.name || 'Shared')
-      : (diagrams.find(f => f.id === activeDiagramId)?.name || 'Diagram');
-    handleExportImage(targetName);
-  }, [isPublicView, publicData, diagrams, activeDiagramId, handleExportImage]);
-
-  // 🛡️ TrashView stabilized callbacks
-  const handleTrashRestoreProject = useCallback(async (id: any) => {
-    await restoreProject(id);
-    await fetchTrash();
-    await fetchProjects();
-  }, [restoreProject, fetchTrash, fetchProjects]);
-
-  const handleTrashRestoreDiagram = useCallback(async (id: any) => {
-    await restoreDiagram(id);
-    await fetchTrash();
-    await fetchProjects();
-    await fetchDiagrams(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
-  }, [restoreDiagram, fetchTrash, fetchProjects, fetchDiagrams, debouncedSearchQuery]);
-
-  const handleTrashRestoreNote = useCallback(async (id: any) => {
-    await restoreNote(id);
-    await fetchTrash();
-    await fetchProjects();
-    await fetchNotes(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
-  }, [restoreNote, fetchTrash, fetchProjects, fetchNotes, debouncedSearchQuery]);
-
-  const handleTrashRestoreDrawing = useCallback(async (id: any) => {
-    await restoreDrawing(id);
-    await fetchTrash();
-    await fetchProjects();
-    await fetchDrawings(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
-  }, [restoreDrawing, fetchTrash, fetchProjects, fetchDrawings, debouncedSearchQuery]);
-
-  const handleTrashRestoreFlowchart = useCallback(async (id: any) => {
-    await restoreFlowchart(id);
-    await fetchTrash();
-    await fetchProjects();
-    await fetchFlowcharts(false, 'all', debouncedSearchQuery, null, 50, { silent: true });
-  }, [restoreFlowchart, fetchTrash, fetchProjects, fetchFlowcharts, debouncedSearchQuery]);
-
-  const handleTrashProjectPermanentDelete = useCallback((id: any) => {
-    setItemToDelete({ id, type: 'project' });
-    setIsPermanentDeleteConfirmOpen(true);
-  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
-
-  const handleTrashDiagramPermanentDelete = useCallback((id: any) => {
-    setItemToDelete({ id, type: 'erd' });
-    setIsPermanentDeleteConfirmOpen(true);
-  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
-
-  const handleTrashNotePermanentDelete = useCallback((id: any) => {
-    setItemToDelete({ id, type: 'notes' });
-    setIsPermanentDeleteConfirmOpen(true);
-  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
-
-  const handleTrashDrawingPermanentDelete = useCallback((id: any) => {
-    setItemToDelete({ id, type: 'drawings' });
-    setIsPermanentDeleteConfirmOpen(true);
-  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
-
-  const handleTrashFlowchartPermanentDelete = useCallback((id: any) => {
-    setItemToDelete({ id, type: 'flowchart' as any });
-    setIsPermanentDeleteConfirmOpen(true);
-  }, [setItemToDelete, setIsPermanentDeleteConfirmOpen]);
-
-  // Compute loading state for current view only (avoids passing view-specific loading to WorkspaceContent)
-  const workspaceIsLoading = useMemo(() => {
-    if (view === 'erd') return isDiagramsLoading || isERDItemLoading;
-    if (view === 'notes') return isNotesLoading || isNoteItemLoading;
-    if (view === 'drawings') return isDrawingsLoading || isDrawingItemLoading;
-    if (view === 'flowchart') return isFlowchartsLoading || isFlowchartItemLoading;
-    return false;
-  }, [view, isDiagramsLoading, isERDItemLoading, isNotesLoading, isNoteItemLoading, isDrawingsLoading, isDrawingItemLoading, isFlowchartsLoading, isFlowchartItemLoading]);
+  const {
+    handleTrashRestoreProject,
+    handleTrashRestoreDiagram,
+    handleTrashRestoreNote,
+    handleTrashRestoreDrawing,
+    handleTrashRestoreFlowchart,
+    handleTrashProjectPermanentDelete,
+    handleTrashDiagramPermanentDelete,
+    handleTrashNotePermanentDelete,
+    handleTrashDrawingPermanentDelete,
+    handleTrashFlowchartPermanentDelete,
+  } = useTrashHandlers({
+    restoreProject, restoreDiagram, restoreNote, restoreDrawing, restoreFlowchart,
+    fetchTrash, fetchProjects, fetchDiagrams, fetchNotes, fetchDrawings, fetchFlowcharts,
+    debouncedSearchQuery,
+    setItemToDelete, setIsPermanentDeleteConfirmOpen,
+  });
 
   if (isAuthenticated === null && !isPublicView) return <AppInitialization type="init" />;
   if (isPublicLoading) return <AppInitialization type="public" view={view} />;
@@ -1343,7 +1261,6 @@ function AppContent() {
           isTrashLoading={isTrashLoading}
         />
       )}
-
 
       <SidebarInset className={isPublicView ? "w-full" : ""}>
         <MainHeader 
